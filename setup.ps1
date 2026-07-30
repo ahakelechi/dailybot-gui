@@ -36,6 +36,56 @@ Write-Step "Checking for Node.js..."
 $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) {
     Write-Fail "Node.js isn't installed on this computer yet."
+    $installedAutomatically = $false
+
+    # --- Try winget first (fastest, official Windows package manager) ---
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if ($winget) {
+        Write-Step "Trying to install Node.js automatically via winget..."
+        winget install --id OpenJS.NodeJS.LTS -e --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -eq 0) {
+            $installedAutomatically = $true
+        } else {
+            Write-Fail "winget install didn't work -- trying a direct download instead..."
+        }
+    }
+
+    # --- Fall back to downloading the official installer directly ---
+    if (-not $installedAutomatically) {
+        try {
+            Write-Step "Looking up the current Node.js LTS version..."
+            $index = Invoke-RestMethod -Uri "https://nodejs.org/dist/index.json"
+            $lts = $index | Where-Object { $_.lts -ne $false } | Select-Object -First 1
+            $version = $lts.version  # e.g. "v22.14.0"
+
+            Write-Step "Downloading Node.js $version..."
+            $msiUrl = "https://nodejs.org/dist/$version/node-$version-x64.msi"
+            $installerPath = Join-Path $env:TEMP "node-installer.msi"
+            Invoke-WebRequest -Uri $msiUrl -OutFile $installerPath
+
+            Write-Step "Installing Node.js $version..."
+            Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /quiet /norestart" -Wait
+            Remove-Item $installerPath -ErrorAction SilentlyContinue
+
+            $installedAutomatically = $true
+        } catch {
+            Write-Fail "Direct download install didn't work: $($_.Exception.Message)"
+        }
+    }
+
+    if ($installedAutomatically) {
+        Write-Host ""
+        Write-Host "    Node.js was installed. This window needs to close so Windows"
+        Write-Host "    can pick up the change."
+        Write-Host ""
+        Write-Host "    Please double-click Setup.bat again to continue."
+        Write-Host ""
+        Read-Host "Press Enter to close"
+        exit 1
+    }
+
+    Write-Host ""
+    Write-Host "    Automatic install couldn't complete -- please install it by hand:"
     Write-Host ""
     Write-Host "    1. Go to https://nodejs.org"
     Write-Host "    2. Download and run the LTS installer (click Next through everything)"
