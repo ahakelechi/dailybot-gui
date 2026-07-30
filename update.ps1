@@ -4,18 +4,23 @@
 # they changed. Safe to run any time -- .env, data/dailyLog.xlsx,
 # sessions/, logs/, reports/, and screenshots/ are all untouched.
 #
-# Works on TWO kinds of install:
-#   - A git clone (has a .git folder): runs `git pull` in place.
-#   - A plain folder copy (a zip someone sent, no .git folder): clones a
-#     fresh copy into a sibling folder, copies your login/entries/saved
-#     locations into it, and tells you to switch to using that folder --
-#     no manual git commands or file copying needed either way.
+# Works on THREE kinds of install:
+#   - A git clone (has a .git folder): runs `git pull` in place. Needs git.
+#   - A plain folder copy, git available: clones a fresh copy into a
+#     sibling folder (nicer -- gives it real update history for next time).
+#   - A plain folder copy, no git at all: downloads a plain ZIP straight
+#     from GitHub (this repo is public, so no sign-in needed either) and
+#     extracts it -- works on a computer that's never had git installed.
+# Either of the last two copies your login/entries/saved locations into
+# the new folder automatically. No manual git commands or file copying
+# needed in any case.
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
 $repoUrl = "https://github.com/ahakelechi/dailybot-gui.git"
+$zipUrl = "https://github.com/ahakelechi/dailybot-gui/archive/refs/heads/main.zip"
 
 function Write-Step($msg) {
     Write-Host ""
@@ -38,20 +43,36 @@ function Copy-IfExists($sourcePath, $destPath) {
         Copy-Item $sourcePath $destPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
+function Copy-PersonalFiles($sourceRoot, $destRoot) {
+    Copy-IfExists (Join-Path $sourceRoot ".env") $destRoot
+    Copy-IfExists (Join-Path $sourceRoot "data\dailyLog.xlsx") (Join-Path $destRoot "data")
+    Copy-IfExists (Join-Path $sourceRoot "data\locations.json") (Join-Path $destRoot "data")
+    # sessions/ is gitignored, so a fresh copy never has this folder at
+    # all -- Copy-Item into a non-existent destination creates a FILE
+    # with that name instead of a folder when the source is a wildcard,
+    # so the destination folder has to exist first.
+    if (Test-Path (Join-Path $sourceRoot "sessions")) {
+        $destSessionsDir = Join-Path $destRoot "sessions"
+        New-Item -ItemType Directory -Force -Path $destSessionsDir | Out-Null
+        Copy-Item (Join-Path $sourceRoot "sessions\*") $destSessionsDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 Write-Host "===================================="
 Write-Host "   DailyBot GUI Update"
 Write-Host "===================================="
 
 $git = Get-Command git -ErrorAction SilentlyContinue
-if (-not $git) {
-    Stop-WithMessage "Git isn't installed on this computer -- install it from https://git-scm.com, then run Update.bat again."
-}
 
 if (Test-Path (Join-Path $root ".git")) {
     # ---------------------------------------------------------------
-    # Already a git clone -- the simple, in-place path.
+    # Already a git clone -- the simple, in-place path. This one
+    # genuinely needs git, since it's how the folder got here.
     # ---------------------------------------------------------------
+    if (-not $git) {
+        Stop-WithMessage "Git isn't installed on this computer -- install it from https://git-scm.com, then run Update.bat again."
+    }
+
     Write-Step "Checking for local changes that would block updating..."
     $dirty = git status --porcelain -- ':!.env' ':!data/dailyLog.xlsx' ':!data/locations.json' ':!sessions' ':!logs' ':!reports' ':!screenshots'
     if ($dirty) {
@@ -88,8 +109,8 @@ if (Test-Path (Join-Path $root ".git")) {
 }
 
 # -----------------------------------------------------------------------
-# Plain folder copy -- no update history to pull from. Clone a fresh copy
-# next to this one instead (can't replace this folder while a script
+# Plain folder copy -- no update history to pull from. Fetch a fresh copy
+# into a sibling folder instead (can't replace this folder while a script
 # inside it is still running), then bring your personal files over.
 # -----------------------------------------------------------------------
 Write-Step "This copy has no update history yet -- fetching a fresh copy alongside it..."
@@ -102,27 +123,63 @@ if (Test-Path $newFolder) {
     Stop-WithMessage "A folder named '$folderName-updated' already exists next to this one -- rename or delete it, then run Update.bat again."
 }
 
-Write-Step "Downloading the latest version (you may be asked to sign in to GitHub)..."
-git clone $repoUrl $newFolder
-if ($LASTEXITCODE -ne 0) {
-    Stop-WithMessage "Could not download the update -- scroll up to see the error."
+$fetchedWithGit = $false
+
+if ($git) {
+    Write-Step "Downloading the latest version via git (you may be asked to sign in to GitHub)..."
+    git clone $repoUrl $newFolder
+    if ($LASTEXITCODE -eq 0) {
+        $fetchedWithGit = $true
+        Write-Ok "Downloaded."
+    } else {
+        Write-Fail "That didn't work -- falling back to a direct download instead..."
+        Remove-Item $newFolder -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
-Write-Ok "Downloaded."
+
+if (-not $fetchedWithGit) {
+    # No git needed for this path at all -- this repo is public, so a
+    # plain HTTPS download works with no sign-in and no prerequisites
+    # beyond PowerShell itself (Expand-Archive has shipped with Windows
+    # since PowerShell 5.0).
+    Write-Step "Downloading the latest version directly (git isn't needed for this)..."
+    $zipPath = Join-Path $env:TEMP "dailybot-gui-update-$(Get-Random).zip"
+    $extractPath = Join-Path $env:TEMP "dailybot-gui-update-extract-$(Get-Random)"
+
+    try {
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+        # GitHub's branch-zip always extracts into one subfolder (e.g.
+        # "dailybot-gui-main") -- that subfolder's contents are the repo.
+        $extractedSubfolder = Get-ChildItem $extractPath | Select-Object -First 1
+        Move-Item $extractedSubfolder.FullName $newFolder
+        Write-Ok "Downloaded."
+    } catch {
+        Stop-WithMessage "Could not download the update: $($_.Exception.Message)"
+    } finally {
+        Remove-Item $zipPath -ErrorAction SilentlyContinue
+        Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 
 Write-Step "Copying over your login, entries, and saved locations..."
-Copy-IfExists (Join-Path $root ".env") $newFolder
-Copy-IfExists (Join-Path $root "data\dailyLog.xlsx") (Join-Path $newFolder "data")
-Copy-IfExists (Join-Path $root "data\locations.json") (Join-Path $newFolder "data")
-# sessions/ is gitignored, so a fresh clone never has this folder at all --
-# Copy-Item into a non-existent destination creates a FILE with that name
-# instead of a folder when the source is a wildcard, so the destination
-# folder has to exist first.
-if (Test-Path (Join-Path $root "sessions")) {
-    $newSessionsDir = Join-Path $newFolder "sessions"
-    New-Item -ItemType Directory -Force -Path $newSessionsDir | Out-Null
-    Copy-Item (Join-Path $root "sessions\*") $newSessionsDir -Recurse -Force -ErrorAction SilentlyContinue
-}
+Copy-PersonalFiles $root $newFolder
 Write-Ok "Copied."
+
+Write-Step "Checking for Node.js..."
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Write-Fail "Node.js isn't installed on this computer yet."
+    Write-Host ""
+    Write-Host "    Your updated files are ready at:"
+    Write-Host "        $newFolder"
+    Write-Host ""
+    Write-Host "    Double-click Setup.bat inside that folder -- it installs Node.js"
+    Write-Host "    automatically, then finishes setting everything up."
+    Write-Host ""
+    Read-Host "Press Enter to close"
+    exit 0
+}
 
 Write-Step "Installing dependencies in the new copy (this can take a few minutes)..."
 Push-Location $newFolder
