@@ -58,6 +58,46 @@
         </details>
       </div>
 
+      <div class="card">
+        <h2>Advanced (.env) Settings</h2>
+        <details>
+          <summary>Timing, retries &amp; behavior</summary>
+          <div class="advanced-body">
+            <p class="hint">These map directly to the underlying <code>.env</code> file. The defaults work well -- only change these if you know why you're changing them. A few (marked *) need DailyBot GUI restarted to take effect; everything else applies on the very next run.</p>
+
+            <label>Slow motion (ms) -- adds a delay before every click/type, useful for watching what DailyBot is doing
+              <input type="number" id="settings-slowmo" min="0" step="50">
+            </label>
+            <label>Page navigation timeout (ms) -- floored at 20000 no matter what's entered
+              <input type="number" id="settings-timeout-nav" min="20000" step="1000">
+            </label>
+            <label>Action timeout (ms) -- how long to wait for a click/field to appear
+              <input type="number" id="settings-timeout-action" min="1000" step="1000">
+            </label>
+            <label>Login-code wait (ms) -- floored at 45000, a human needs time to read and type it
+              <input type="number" id="settings-timeout-otp" min="45000" step="5000">
+            </label>
+            <label>Retry attempts -- how many times to retry a failed step
+              <input type="number" id="settings-retry-attempts" min="1" max="10" step="1">
+            </label>
+            <label>Retry delay (ms) -- capped at 15000, so a retry never looks like a hang
+              <input type="number" id="settings-retry-delay" min="0" max="15000" step="500">
+            </label>
+            <label>Days before a log is too old to edit -- matches the site's own rule (2 by default); only raise this if the site's rule genuinely changes
+              <input type="number" id="settings-max-edit-age" min="0" step="1">
+            </label>
+            <label>Log detail level *
+              <select id="settings-log-level">
+                <option value="error">Error only</option>
+                <option value="warn">Warnings + errors</option>
+                <option value="info">Normal (info)</option>
+                <option value="debug">Everything (debug)</option>
+              </select>
+            </label>
+          </div>
+        </details>
+      </div>
+
       <button class="primary-btn" id="save-settings-btn">Save Settings</button>
       <p class="status-msg" id="settings-status"></p>
     </section>

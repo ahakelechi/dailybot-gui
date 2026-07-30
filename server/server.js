@@ -129,12 +129,32 @@ async function handleGetSettings(req, res) {
     geoLatitude: config.geolocation.latitude,
     geoLongitude: config.geolocation.longitude,
     headless: config.browser.headless,
+    // Advanced (.env) settings -- deliberately a curated subset, not every
+    // key in .env. Left out: BASE_URL/LOGIN_URL/DASHBOARD_URL (every
+    // selector in core/config.js is hand-verified against this exact
+    // site's DOM -- pointing at a different URL would just break
+    // everything, not adapt to it) and DATA_FILE (a raw filesystem path,
+    // easy to typo into something confusing from a text box).
+    slowMo: config.browser.slowMo,
+    timeoutNavigation: config.timeouts.navigation,
+    timeoutAction: config.timeouts.action,
+    timeoutOtp: config.timeouts.otpWait,
+    retryAttempts: config.retry.attempts,
+    retryDelayMs: config.retry.delayMs,
+    maxEditAgeDays: config.maxEditAgeDays,
+    logLevel: config.logging.level,
   });
 }
 
 async function handlePostSettings(req, res) {
   const body = await readJsonBody(req);
   const updates = {};
+  // The form always submits every field, not just the one the user
+  // touched -- so "was logLevel in the request" is always true and can't
+  // tell us whether it actually changed. Compare against the current
+  // value instead, otherwise every save falsely claims a restart is needed.
+  const config = require("../core/config");
+  const logLevelChanged = typeof body.logLevel === "string" && body.logLevel !== "" && body.logLevel !== config.logging.level;
 
   if (typeof body.email === "string") updates.LOGIN_EMAIL = body.email.trim();
   // Blank password in the form means "leave the existing one alone" --
@@ -147,21 +167,44 @@ async function handlePostSettings(req, res) {
   if (body.geoLongitude !== undefined && body.geoLongitude !== "") updates.GEO_LONGITUDE = String(body.geoLongitude);
   if (typeof body.headless === "boolean") updates.HEADLESS = String(body.headless);
 
+  if (body.slowMo !== undefined && body.slowMo !== "") updates.SLOW_MO = String(body.slowMo);
+  if (body.timeoutNavigation !== undefined && body.timeoutNavigation !== "") updates.TIMEOUT_NAVIGATION = String(body.timeoutNavigation);
+  if (body.timeoutAction !== undefined && body.timeoutAction !== "") updates.TIMEOUT_ACTION = String(body.timeoutAction);
+  if (body.timeoutOtp !== undefined && body.timeoutOtp !== "") updates.TIMEOUT_OTP = String(body.timeoutOtp);
+  if (body.retryAttempts !== undefined && body.retryAttempts !== "") updates.RETRY_ATTEMPTS = String(body.retryAttempts);
+  if (body.retryDelayMs !== undefined && body.retryDelayMs !== "") updates.RETRY_DELAY_MS = String(body.retryDelayMs);
+  if (body.maxEditAgeDays !== undefined && body.maxEditAgeDays !== "") updates.MAX_EDIT_AGE_DAYS = String(body.maxEditAgeDays);
+  if (typeof body.logLevel === "string" && body.logLevel !== "") updates.LOG_LEVEL = body.logLevel;
+
   updateEnvFile(ENV_PATH, updates);
 
   // Refresh process.env from the file, then mutate the shared config
   // object in place so the change is picked up immediately -- no restart
   // needed. core/config.js exports one plain object that every other
-  // core module already holds a reference to.
+  // core module already holds a reference to. The same floors/caps
+  // config.js applies on a fresh load (e.g. OTP wait can never go below
+  // 45s -- too short for a human to read and type a code) are mirrored
+  // here so a live edit can't bypass them.
   dotenv.config({ path: ENV_PATH, override: true });
-  const config = require("../core/config");
   if (updates.LOGIN_EMAIL !== undefined) config.credentials.email = updates.LOGIN_EMAIL;
   if (updates.LOGIN_PASSWORD !== undefined) config.credentials.password = updates.LOGIN_PASSWORD;
   if (updates.GEO_LATITUDE !== undefined) config.geolocation.latitude = Number(updates.GEO_LATITUDE);
   if (updates.GEO_LONGITUDE !== undefined) config.geolocation.longitude = Number(updates.GEO_LONGITUDE);
   if (updates.HEADLESS !== undefined) config.browser.headless = updates.HEADLESS === "true";
+  if (updates.SLOW_MO !== undefined) config.browser.slowMo = Number(updates.SLOW_MO);
+  if (updates.TIMEOUT_NAVIGATION !== undefined) config.timeouts.navigation = Math.max(Number(updates.TIMEOUT_NAVIGATION), 20000);
+  if (updates.TIMEOUT_ACTION !== undefined) config.timeouts.action = Number(updates.TIMEOUT_ACTION);
+  if (updates.TIMEOUT_OTP !== undefined) config.timeouts.otpWait = Math.max(Number(updates.TIMEOUT_OTP), 45000);
+  if (updates.RETRY_ATTEMPTS !== undefined) config.retry.attempts = Number(updates.RETRY_ATTEMPTS);
+  if (updates.RETRY_DELAY_MS !== undefined) config.retry.delayMs = Math.min(Number(updates.RETRY_DELAY_MS), 15000);
+  if (updates.MAX_EDIT_AGE_DAYS !== undefined) config.maxEditAgeDays = Number(updates.MAX_EDIT_AGE_DAYS);
+  // LOG_LEVEL is written to .env either way, but winston's actual logger
+  // instance is built once at require-time in utils/logger.js -- there's
+  // no live handle to it from here, so this one genuinely needs a
+  // restart of DailyBot GUI to take effect (the GUI says so).
+  if (updates.LOG_LEVEL !== undefined) config.logging.level = updates.LOG_LEVEL;
 
-  sendJson(res, 200, { ok: true });
+  sendJson(res, 200, { ok: true, restartRequired: logLevelChanged });
 }
 
 async function handleGetEntries(req, res) {

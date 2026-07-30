@@ -33,6 +33,15 @@
     document.getElementById("password-status").textContent = data.hasPassword
       ? "A password is already saved. Leave the field blank to keep it."
       : "No password saved yet.";
+
+    document.getElementById("settings-slowmo").value = data.slowMo ?? 0;
+    document.getElementById("settings-timeout-nav").value = data.timeoutNavigation ?? 30000;
+    document.getElementById("settings-timeout-action").value = data.timeoutAction ?? 15000;
+    document.getElementById("settings-timeout-otp").value = data.timeoutOtp ?? 90000;
+    document.getElementById("settings-retry-attempts").value = data.retryAttempts ?? 3;
+    document.getElementById("settings-retry-delay").value = data.retryDelayMs ?? 3000;
+    document.getElementById("settings-max-edit-age").value = data.maxEditAgeDays ?? 2;
+    document.getElementById("settings-log-level").value = data.logLevel || "info";
   }
 
   document.getElementById("save-settings-btn").addEventListener("click", async () => {
@@ -46,6 +55,14 @@
       geoLatitude: document.getElementById("settings-lat").value,
       geoLongitude: document.getElementById("settings-lng").value,
       headless: document.getElementById("settings-headless").checked,
+      slowMo: document.getElementById("settings-slowmo").value,
+      timeoutNavigation: document.getElementById("settings-timeout-nav").value,
+      timeoutAction: document.getElementById("settings-timeout-action").value,
+      timeoutOtp: document.getElementById("settings-timeout-otp").value,
+      retryAttempts: document.getElementById("settings-retry-attempts").value,
+      retryDelayMs: document.getElementById("settings-retry-delay").value,
+      maxEditAgeDays: document.getElementById("settings-max-edit-age").value,
+      logLevel: document.getElementById("settings-log-level").value,
     };
 
     try {
@@ -54,8 +71,11 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Save failed");
-      statusEl.textContent = "Saved.";
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Save failed");
+      statusEl.textContent = result.restartRequired
+        ? "Saved. Restart DailyBot GUI for the log-level change to apply."
+        : "Saved.";
       statusEl.className = "status-msg ok";
       document.getElementById("settings-password").value = "";
       loadSettings();
