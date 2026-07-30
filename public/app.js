@@ -174,23 +174,19 @@
 
   document.getElementById("entry-location-preset").addEventListener("change", (e) => {
     const value = e.target.value;
-    const latField = document.getElementById("entry-lat-field");
-    const lngField = document.getElementById("entry-lng-field");
+    const coordRow = document.getElementById("entry-coord-row");
     const latInput = document.getElementById("entry-latitude");
     const lngInput = document.getElementById("entry-longitude");
 
     if (value === "default") {
-      latField.style.display = "none";
-      lngField.style.display = "none";
+      coordRow.style.display = "none";
       latInput.value = "";
       lngInput.value = "";
     } else if (value === "custom") {
-      latField.style.display = "";
-      lngField.style.display = "";
+      coordRow.style.display = "";
     } else if (value.startsWith("saved:")) {
       const loc = savedLocations[Number(value.split(":")[1])];
-      latField.style.display = "";
-      lngField.style.display = "";
+      coordRow.style.display = "";
       if (loc) {
         latInput.value = loc.latitude;
         lngInput.value = loc.longitude;
@@ -266,8 +262,7 @@
         (id) => (document.getElementById(id).value = "")
       );
       document.getElementById("entry-location-preset").value = "default";
-      document.getElementById("entry-lat-field").style.display = "none";
-      document.getElementById("entry-lng-field").style.display = "none";
+      document.getElementById("entry-coord-row").style.display = "none";
       document.getElementById("entry-latitude").value = "";
       document.getElementById("entry-longitude").value = "";
       loadEntries();

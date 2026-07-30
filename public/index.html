@@ -43,12 +43,15 @@
         <details>
           <summary>Location (only needed if the site asks for it)</summary>
           <div class="advanced-body">
-            <label>Latitude
-              <input type="text" id="settings-lat" placeholder="6.5244">
-            </label>
-            <label>Longitude
-              <input type="text" id="settings-lng" placeholder="3.3792">
-            </label>
+            <div class="coord-row">
+              <label>Latitude
+                <input type="text" id="settings-lat" placeholder="6.5244" inputmode="decimal">
+              </label>
+              <label>Longitude
+                <input type="text" id="settings-lng" placeholder="3.3792" inputmode="decimal">
+              </label>
+            </div>
+            <p class="hint">Tip: drop a pin on <a href="https://www.google.com/maps" target="_blank" rel="noopener">Google Maps</a>, right-click it, and the coordinates shown are ready to paste in.</p>
           </div>
         </details>
       </div>
@@ -144,12 +147,14 @@
               <option value="custom">Custom coordinates for just this entry</option>
             </select>
           </label>
-          <label id="entry-lat-field" class="full-width" style="display:none">Latitude
-            <input type="text" id="entry-latitude" placeholder="6.5244">
-          </label>
-          <label id="entry-lng-field" class="full-width" style="display:none">Longitude
-            <input type="text" id="entry-longitude" placeholder="3.3792">
-          </label>
+          <div id="entry-coord-row" class="coord-row full-width" style="display:none">
+            <label id="entry-lat-field">Latitude
+              <input type="text" id="entry-latitude" placeholder="6.5244" inputmode="decimal">
+            </label>
+            <label id="entry-lng-field">Longitude
+              <input type="text" id="entry-longitude" placeholder="3.3792" inputmode="decimal">
+            </label>
+          </div>
         </div>
         <button class="primary-btn" id="add-entry-btn">Add Entry</button>
         <p class="status-msg" id="entry-status"></p>
@@ -167,15 +172,18 @@
         <p class="hint" id="locations-empty" style="display:none">No saved locations yet.</p>
 
         <div class="entry-form">
-          <label>Name
+          <label class="full-width">Name
             <input type="text" id="location-name" placeholder="e.g. VMware HQ Lagos">
           </label>
-          <label>Latitude
-            <input type="text" id="location-latitude" placeholder="6.5244">
-          </label>
-          <label class="full-width">Longitude
-            <input type="text" id="location-longitude" placeholder="3.3792">
-          </label>
+          <div class="coord-row full-width">
+            <label>Latitude
+              <input type="text" id="location-latitude" placeholder="6.5244" inputmode="decimal">
+            </label>
+            <label>Longitude
+              <input type="text" id="location-longitude" placeholder="3.3792" inputmode="decimal">
+            </label>
+          </div>
+          <p class="hint full-width">Tip: drop a pin on <a href="https://www.google.com/maps" target="_blank" rel="noopener">Google Maps</a>, right-click it, and the coordinates shown are ready to paste in.</p>
         </div>
         <button class="primary-btn" id="add-location-btn">Save Location</button>
         <p class="status-msg" id="location-status"></p>
