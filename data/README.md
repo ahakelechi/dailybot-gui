@@ -15,6 +15,16 @@ Each row is one daily-log entry (one visit) that DailyBot will submit. Columns:
 | Blockers | Anything blocking progress that day                | "Blockers"                           | nil                     |
 | Priority | Top priorities for tomorrow                        | "Top 3 Priorities for Tomorrow"      | Follow up with client   |
 | Notes    | Free text meeting notes                            | "Meeting Notes"                      | Awaiting customer       |
+| Latitude | Optional. Overrides the default location for just this visit. | The site's Location field | 6.5244 |
+| Longitude| Optional. Goes with Latitude -- both or neither.   | The site's Location field             | 3.3792                  |
+
+**Latitude/Longitude columns:**
+- Leave both blank and this entry uses the default location from the
+  Settings tab, same as before.
+- Fill in both to report a different, specific place for just this
+  visit -- useful when one day's entries are for visits to different
+  physical locations. The GUI's Entries tab has a "Saved Locations" list
+  so you can pick a place by name instead of typing coordinates each time.
 
 **Date column:**
 - Leave it blank and the row is logged under today.

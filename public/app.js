@@ -15,7 +15,10 @@
       document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
-      if (btn.dataset.tab === "entries") loadEntries();
+      if (btn.dataset.tab === "entries") {
+        loadEntries();
+        loadLocations();
+      }
       if (btn.dataset.tab === "run") loadReports();
     });
   });
@@ -98,12 +101,14 @@
 
     for (const e of entries) {
       const tr = document.createElement("tr");
+      const location = e.latitude !== "" && e.longitude !== "" ? `${e.latitude}, ${e.longitude}` : "Default";
       tr.innerHTML = `
         <td>${escapeHtml(e.date)}</td>
         <td>${escapeHtml(e.partner)}</td>
         <td>${escapeHtml(String(e.calls))}</td>
         <td>${escapeHtml(String(e.meetings))}</td>
         <td>${escapeHtml(e.notes)}</td>
+        <td>${escapeHtml(location)}</td>
         <td><button class="row-delete-btn" data-row="${e.rowNumber}">Remove</button></td>
       `;
       tbody.appendChild(tr);
@@ -117,6 +122,109 @@
     });
   }
 
+  // ---------------------------------------------------------------------
+  // Saved Locations
+  // ---------------------------------------------------------------------
+  let savedLocations = [];
+
+  async function loadLocations() {
+    const res = await fetch("/api/locations");
+    savedLocations = await res.json();
+
+    const tbody = document.getElementById("locations-tbody");
+    tbody.innerHTML = "";
+    document.getElementById("locations-empty").style.display = savedLocations.length ? "none" : "block";
+    savedLocations.forEach((loc, index) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(loc.name)}</td>
+        <td>${escapeHtml(String(loc.latitude))}</td>
+        <td>${escapeHtml(String(loc.longitude))}</td>
+        <td><button class="row-delete-btn" data-index="${index}">Remove</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll(".row-delete-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await fetch(`/api/locations/${btn.dataset.index}`, { method: "DELETE" });
+        loadLocations();
+      });
+    });
+
+    // Repopulate the entry form's location dropdown, keeping "Use the
+    // default" and "Custom coordinates" fixed at the top.
+    const select = document.getElementById("entry-location-preset");
+    const currentValue = select.value;
+    select.innerHTML = `
+      <option value="default">Use the default location (from Settings)</option>
+      <option value="custom">Custom coordinates for just this entry</option>
+    `;
+    savedLocations.forEach((loc, index) => {
+      const opt = document.createElement("option");
+      opt.value = `saved:${index}`;
+      opt.textContent = loc.name;
+      select.appendChild(opt);
+    });
+    // Keep whatever was selected if it still exists (e.g. after saving a
+    // new location while a different one was already picked).
+    if ([...select.options].some((o) => o.value === currentValue)) {
+      select.value = currentValue;
+    }
+  }
+
+  document.getElementById("entry-location-preset").addEventListener("change", (e) => {
+    const value = e.target.value;
+    const latField = document.getElementById("entry-lat-field");
+    const lngField = document.getElementById("entry-lng-field");
+    const latInput = document.getElementById("entry-latitude");
+    const lngInput = document.getElementById("entry-longitude");
+
+    if (value === "default") {
+      latField.style.display = "none";
+      lngField.style.display = "none";
+      latInput.value = "";
+      lngInput.value = "";
+    } else if (value === "custom") {
+      latField.style.display = "";
+      lngField.style.display = "";
+    } else if (value.startsWith("saved:")) {
+      const loc = savedLocations[Number(value.split(":")[1])];
+      latField.style.display = "";
+      lngField.style.display = "";
+      if (loc) {
+        latInput.value = loc.latitude;
+        lngInput.value = loc.longitude;
+      }
+    }
+  });
+
+  document.getElementById("add-location-btn").addEventListener("click", async () => {
+    const statusEl = document.getElementById("location-status");
+    const body = {
+      name: document.getElementById("location-name").value,
+      latitude: document.getElementById("location-latitude").value,
+      longitude: document.getElementById("location-longitude").value,
+    };
+
+    try {
+      const res = await fetch("/api/locations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Could not save location");
+      statusEl.textContent = "Saved.";
+      statusEl.className = "status-msg ok";
+      ["location-name", "location-latitude", "location-longitude"].forEach(
+        (id) => (document.getElementById(id).value = "")
+      );
+      loadLocations();
+    } catch (err) {
+      statusEl.textContent = err.message;
+      statusEl.className = "status-msg err";
+    }
+  });
+
   document.getElementById("add-entry-btn").addEventListener("click", async () => {
     const statusEl = document.getElementById("entry-status");
     const partner = document.getElementById("entry-partner").value.trim();
@@ -126,6 +234,13 @@
       return;
     }
 
+    // "default" means send no coordinates at all -- blank Latitude/
+    // Longitude columns are exactly what tells the automation engine to
+    // fall back to the Settings default for this entry.
+    const locationPreset = document.getElementById("entry-location-preset").value;
+    const latitude = locationPreset === "default" ? "" : document.getElementById("entry-latitude").value;
+    const longitude = locationPreset === "default" ? "" : document.getElementById("entry-longitude").value;
+
     const body = {
       date: document.getElementById("entry-date").value,
       partner,
@@ -134,6 +249,8 @@
       blockers: document.getElementById("entry-blockers").value,
       priority: document.getElementById("entry-priority").value,
       notes: document.getElementById("entry-notes").value,
+      latitude,
+      longitude,
     };
 
     try {
@@ -148,6 +265,11 @@
       ["entry-partner", "entry-calls", "entry-meetings", "entry-blockers", "entry-priority", "entry-notes"].forEach(
         (id) => (document.getElementById(id).value = "")
       );
+      document.getElementById("entry-location-preset").value = "default";
+      document.getElementById("entry-lat-field").style.display = "none";
+      document.getElementById("entry-lng-field").style.display = "none";
+      document.getElementById("entry-latitude").value = "";
+      document.getElementById("entry-longitude").value = "";
       loadEntries();
     } catch (err) {
       statusEl.textContent = err.message;
@@ -226,5 +348,6 @@
   // ---------------------------------------------------------------------
   document.getElementById("entry-date").valueAsDate = new Date();
   loadSettings();
+  loadLocations();
   connectStream();
 })();

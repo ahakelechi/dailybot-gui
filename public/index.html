@@ -138,9 +138,47 @@
           <label class="full-width">Meeting notes
             <textarea id="entry-notes" rows="2"></textarea>
           </label>
+          <label class="full-width">Location for this visit
+            <select id="entry-location-preset">
+              <option value="default">Use the default location (from Settings)</option>
+              <option value="custom">Custom coordinates for just this entry</option>
+            </select>
+          </label>
+          <label id="entry-lat-field" class="full-width" style="display:none">Latitude
+            <input type="text" id="entry-latitude" placeholder="6.5244">
+          </label>
+          <label id="entry-lng-field" class="full-width" style="display:none">Longitude
+            <input type="text" id="entry-longitude" placeholder="3.3792">
+          </label>
         </div>
         <button class="primary-btn" id="add-entry-btn">Add Entry</button>
         <p class="status-msg" id="entry-status"></p>
+      </div>
+
+      <div class="card">
+        <h2>Saved Locations</h2>
+        <p class="hint">Save a place once, then pick it from the list above instead of retyping coordinates every time.</p>
+        <table class="entries-table" id="locations-table">
+          <thead>
+            <tr><th>Name</th><th>Latitude</th><th>Longitude</th><th></th></tr>
+          </thead>
+          <tbody id="locations-tbody"></tbody>
+        </table>
+        <p class="hint" id="locations-empty" style="display:none">No saved locations yet.</p>
+
+        <div class="entry-form">
+          <label>Name
+            <input type="text" id="location-name" placeholder="e.g. VMware HQ Lagos">
+          </label>
+          <label>Latitude
+            <input type="text" id="location-latitude" placeholder="6.5244">
+          </label>
+          <label class="full-width">Longitude
+            <input type="text" id="location-longitude" placeholder="3.3792">
+          </label>
+        </div>
+        <button class="primary-btn" id="add-location-btn">Save Location</button>
+        <p class="status-msg" id="location-status"></p>
       </div>
 
       <div class="card">
@@ -148,7 +186,7 @@
         <p class="hint">These are what the next run will submit. A row disappears automatically once it's confirmed submitted.</p>
         <table class="entries-table" id="entries-table">
           <thead>
-            <tr><th>Date</th><th>Partner</th><th>Calls</th><th>Meetings</th><th>Notes</th><th></th></tr>
+            <tr><th>Date</th><th>Partner</th><th>Calls</th><th>Meetings</th><th>Notes</th><th>Location</th><th></th></tr>
           </thead>
           <tbody id="entries-tbody"></tbody>
         </table>

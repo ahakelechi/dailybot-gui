@@ -24,7 +24,10 @@ underlying automation (`core/`), plus a local web GUI (`server/` +
   only in this computer's local `.env` file.
 - **Daily Entries tab** -- add today's visits (partner, calls, meetings,
   notes) instead of opening an Excel file. Each row disappears once it's
-  confirmed submitted.
+  confirmed submitted. Each entry can also have its own location -- pick
+  "Custom coordinates" (or a place from your saved list) if that visit
+  happened somewhere different from your default location, otherwise it
+  just uses the default from Settings.
 - **Run & Reports tab** -- click **Run Now**. A real browser window will
   open and do the actual submitting -- most days you won't need to touch
   it. Some days a login code is sent to your phone/email; when boxes

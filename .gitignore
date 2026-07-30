@@ -13,6 +13,7 @@ screenshots/
 # Local data entries are personal to whoever's running this install
 data/dailyLog.xlsx
 data/~$*.xlsx
+data/locations.json
 
 # OS/editor noise
 .DS_Store

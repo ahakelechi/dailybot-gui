@@ -52,7 +52,8 @@ async function readDailyLogEntries(filePath = config.paths.dataFile) {
   if (!fs.existsSync(filePath)) {
     throw new Error(
       `Data file not found: ${filePath}. Add an Excel file with columns ` +
-        `Date, Partner, Calls, Meetings, Blockers, Priority, Notes.`
+        `Date, Partner, Calls, Meetings, Blockers, Priority, Notes, Latitude, Longitude ` +
+        `(Latitude/Longitude are optional -- blank means "use the default location").`
     );
   }
 
@@ -162,9 +163,44 @@ async function ensureDataFile(filePath = config.paths.dataFile) {
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Daily Log");
-  sheet.addRow(["Date", "Partner", "Calls", "Meetings", "Blockers", "Priority", "Notes"]);
+  sheet.addRow(["Date", "Partner", "Calls", "Meetings", "Blockers", "Priority", "Notes", "Latitude", "Longitude"]);
   await workbook.xlsx.writeFile(filePath);
   logger.info(`Created a fresh data file at ${filePath}`);
 }
 
-module.exports = { readDailyLogEntries, groupEntriesByDate, removeRows, ensureDataFile };
+/**
+ * Add "Latitude"/"Longitude" columns to the header row if a data file was
+ * created before those existed. Idempotent -- safe to call before every
+ * append. Existing rows are untouched (their new cells just read as
+ * blank, which already means "use the default location").
+ *
+ * @param {string} [filePath]
+ */
+async function ensureLocationColumns(filePath = config.paths.dataFile) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return;
+
+  const headerRow = sheet.getRow(1);
+  const headerNames = [];
+  headerRow.eachCell((cell) => headerNames.push(String(cell.value || "").trim()));
+
+  let nextCol = headerRow.cellCount + 1;
+  let changed = false;
+  if (!headerNames.includes("Latitude")) {
+    headerRow.getCell(nextCol).value = "Latitude";
+    nextCol += 1;
+    changed = true;
+  }
+  if (!headerNames.includes("Longitude")) {
+    headerRow.getCell(nextCol).value = "Longitude";
+    changed = true;
+  }
+
+  if (changed) {
+    await workbook.xlsx.writeFile(filePath);
+  }
+}
+
+module.exports = { readDailyLogEntries, groupEntriesByDate, removeRows, ensureDataFile, ensureLocationColumns };

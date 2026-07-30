@@ -40,6 +40,30 @@ async function submitEntry(page, entry, options = {}) {
     async () => {
       logger.info(`Filling entry for partner: ${partner}`);
 
+      // Per-entry location override: blank Latitude/Longitude columns
+      // mean "use the default from Settings" -- anything else overrides
+      // it for just this one visit. Playwright's context.setGeolocation()
+      // can be called any time during a session, so each entry in the
+      // same day can genuinely report a different place, matching a rep
+      // actually visiting different locations. This has to happen BEFORE
+      // the "Enable location" flow below, so the site picks up the right
+      // coordinates when it asks.
+      const hasLatOverride = entry.Latitude !== undefined && entry.Latitude !== "";
+      const hasLngOverride = entry.Longitude !== undefined && entry.Longitude !== "";
+      let lat = hasLatOverride ? Number(entry.Latitude) : config.geolocation.latitude;
+      let lng = hasLngOverride ? Number(entry.Longitude) : config.geolocation.longitude;
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        logger.warning(
+          `Entry for ${partner} has an invalid Latitude/Longitude (${entry.Latitude}, ${entry.Longitude}) -- falling back to the default location.`
+        );
+        lat = config.geolocation.latitude;
+        lng = config.geolocation.longitude;
+      }
+      await page.context().setGeolocation({ latitude: lat, longitude: lng });
+      if (hasLatOverride || hasLngOverride) {
+        logger.info(`Using entry-specific location for ${partner}: ${lat}, ${lng}`);
+      }
+
       // The form has a required Location field that silently blocks
       // saving until enabled. Granting geolocation permission at the
       // browser-context level (browser.js) should prevent this button

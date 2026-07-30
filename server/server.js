@@ -223,6 +223,8 @@ async function handleGetEntries(req, res) {
       blockers: e.Blockers ?? "",
       priority: e.Priority ?? "",
       notes: e.Notes ?? "",
+      latitude: e.Latitude ?? "",
+      longitude: e.Longitude ?? "",
     }))
   );
 }
@@ -236,8 +238,12 @@ async function handlePostEntry(req, res) {
 
   const ExcelJS = require("exceljs");
   const config = require("../core/config");
-  const { ensureDataFile } = require("../core/utils/dataReader");
+  const { ensureDataFile, ensureLocationColumns } = require("../core/utils/dataReader");
   await ensureDataFile();
+  // Older data files (created before location overrides existed) won't
+  // have these columns yet -- add them if missing before appending a row
+  // that assumes they're there.
+  await ensureLocationColumns();
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(config.paths.dataFile);
@@ -250,10 +256,39 @@ async function handlePostEntry(req, res) {
     body.blockers ?? "",
     body.priority ?? "",
     body.notes ?? "",
+    body.latitude ?? "",
+    body.longitude ?? "",
   ]);
   await workbook.xlsx.writeFile(config.paths.dataFile);
 
   sendJson(res, 200, { ok: true });
+}
+
+async function handleGetLocations(req, res) {
+  const { readLocations } = require("../core/utils/locations");
+  sendJson(res, 200, readLocations());
+}
+
+async function handlePostLocation(req, res) {
+  const body = await readJsonBody(req);
+  const name = String(body.name || "").trim();
+  const lat = Number(body.latitude);
+  const lng = Number(body.longitude);
+  if (!name) {
+    sendJson(res, 400, { error: "Name is required." });
+    return;
+  }
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    sendJson(res, 400, { error: "Latitude and longitude must both be numbers." });
+    return;
+  }
+  const { addLocation } = require("../core/utils/locations");
+  sendJson(res, 200, { ok: true, locations: addLocation({ name, latitude: lat, longitude: lng }) });
+}
+
+async function handleDeleteLocation(req, res, index) {
+  const { removeLocation } = require("../core/utils/locations");
+  sendJson(res, 200, { ok: true, locations: removeLocation(index) });
 }
 
 async function handleDeleteEntry(req, res, rowNumber) {
@@ -352,6 +387,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && pathname === "/api/entries") return await handlePostEntry(req, res);
     const deleteMatch = pathname.match(/^\/api\/entries\/(\d+)$/);
     if (req.method === "DELETE" && deleteMatch) return await handleDeleteEntry(req, res, Number(deleteMatch[1]));
+
+    if (req.method === "GET" && pathname === "/api/locations") return await handleGetLocations(req, res);
+    if (req.method === "POST" && pathname === "/api/locations") return await handlePostLocation(req, res);
+    const deleteLocationMatch = pathname.match(/^\/api\/locations\/(\d+)$/);
+    if (req.method === "DELETE" && deleteLocationMatch) return await handleDeleteLocation(req, res, Number(deleteLocationMatch[1]));
 
     if (req.method === "POST" && pathname === "/api/run") return await handlePostRun(req, res);
     if (req.method === "GET" && pathname === "/api/run/stream") return handleGetRunStream(req, res);
