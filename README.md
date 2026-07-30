@@ -75,6 +75,35 @@ Copy the whole folder **except**:
 Each install is independent: its own login, its own entries, its own
 reports. They all run the same underlying automation.
 
+## Updating
+
+If your copy already has `Update.bat`, just double-click it -- it pulls
+the latest version and reinstalls dependencies if needed, without
+touching your login, entries, or reports.
+
+If it's an **older copy that doesn't have `Update.bat` yet**:
+
+- **It's a git clone** (there's a hidden `.git` folder inside it): open a
+  terminal in the folder and run:
+  ```bash
+  git pull
+  npm install
+  ```
+  This also pulls down `Update.bat` itself, so every update after this
+  one is back to just double-clicking it.
+
+- **It's a plain folder copy** (a zip someone sent you, no `.git`
+  folder): there's no history to pull from, so instead:
+  1. Get a fresh copy -- either `git clone
+     https://github.com/ahakelechi/dailybot-gui.git` into a new folder,
+     or download the ZIP from the repo's green **Code** button on GitHub
+     and unzip it as a new folder.
+  2. From your **old** folder, copy these into the new one: `.env`,
+     `data/dailyLog.xlsx`, `data/locations.json`, and the whole
+     `sessions/` folder.
+  3. Run `npm install` in the new folder (or double-click `Setup.bat` --
+     it detects your existing `.env` and offers to keep it).
+
 ## If something goes wrong
 
 - Check the **Progress** panel in the Run tab for the error message.
