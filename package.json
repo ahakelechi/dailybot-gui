@@ -1,0 +1,19 @@
+{
+  "name": "dailybot-gui",
+  "version": "1.0.0",
+  "description": "DailyBot with a simple local web GUI -- automatic daily log submission",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "cli": "node core/index.js",
+    "sanity": "node core/test.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "playwright": "^1.61.1",
+    "winston": "^3.19.0"
+  }
+}

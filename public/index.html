@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DailyBot</title>
+<link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <div>
+        <h1>DailyBot</h1>
+        <p class="subtitle">Automatic daily log submission</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="settings">Settings</button>
+    <button class="tab-btn" data-tab="entries">Daily Entries</button>
+    <button class="tab-btn" data-tab="run">Run &amp; Reports</button>
+  </nav>
+
+  <main>
+    <!-- ============================== SETTINGS ============================== -->
+    <section id="tab-settings" class="tab-panel active">
+      <div class="card">
+        <h2>Login</h2>
+        <p class="hint">Your credentials for the account-management portal. Stored only in this computer's local <code>.env</code> file -- never sent anywhere else.</p>
+        <label>Email
+          <input type="email" id="settings-email" placeholder="you@company.com" autocomplete="username">
+        </label>
+        <label>Password
+          <input type="password" id="settings-password" placeholder="Leave blank to keep the current password" autocomplete="new-password">
+        </label>
+        <p class="hint" id="password-status"></p>
+      </div>
+
+      <div class="card">
+        <h2>Advanced</h2>
+        <details>
+          <summary>Location (only needed if the site asks for it)</summary>
+          <div class="advanced-body">
+            <label>Latitude
+              <input type="text" id="settings-lat" placeholder="6.5244">
+            </label>
+            <label>Longitude
+              <input type="text" id="settings-lng" placeholder="3.3792">
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="settings-headless">
+              Run in the background (no visible browser window)
+            </label>
+            <p class="hint warning">Only enable this after DailyBot has run successfully with the browser visible at least once -- with it on, you won't see a login code prompt if one shows up.</p>
+          </div>
+        </details>
+      </div>
+
+      <button class="primary-btn" id="save-settings-btn">Save Settings</button>
+      <p class="status-msg" id="settings-status"></p>
+    </section>
+
+    <!-- ============================== ENTRIES ============================== -->
+    <section id="tab-entries" class="tab-panel">
+      <div class="card">
+        <h2>Add an entry</h2>
+        <div class="entry-form">
+          <label>Date
+            <input type="date" id="entry-date">
+          </label>
+          <label>Partner *
+            <input type="text" id="entry-partner" placeholder="e.g. VMware">
+          </label>
+          <label>Calls
+            <input type="number" id="entry-calls" min="0">
+          </label>
+          <label>Meetings
+            <input type="number" id="entry-meetings" min="0">
+          </label>
+          <label class="full-width">Blockers
+            <input type="text" id="entry-blockers" placeholder="nil">
+          </label>
+          <label class="full-width">Top 3 priorities for tomorrow
+            <input type="text" id="entry-priority">
+          </label>
+          <label class="full-width">Meeting notes
+            <textarea id="entry-notes" rows="2"></textarea>
+          </label>
+        </div>
+        <button class="primary-btn" id="add-entry-btn">Add Entry</button>
+        <p class="status-msg" id="entry-status"></p>
+      </div>
+
+      <div class="card">
+        <h2>Pending entries</h2>
+        <p class="hint">These are what the next run will submit. A row disappears automatically once it's confirmed submitted.</p>
+        <table class="entries-table" id="entries-table">
+          <thead>
+            <tr><th>Date</th><th>Partner</th><th>Calls</th><th>Meetings</th><th>Notes</th><th></th></tr>
+          </thead>
+          <tbody id="entries-tbody"></tbody>
+        </table>
+        <p class="hint" id="entries-empty" style="display:none">No pending entries.</p>
+      </div>
+    </section>
+
+    <!-- ============================== RUN ============================== -->
+    <section id="tab-run" class="tab-panel">
+      <div class="card">
+        <h2>Run DailyBot</h2>
+        <p class="hint">A browser window will open. Most days you won't need to do anything. Some days a login code is sent to your phone/email -- when boxes appear on screen asking for it, type it in there (not here).</p>
+        <button class="primary-btn" id="run-btn">Run Now</button>
+        <span class="run-indicator" id="run-indicator"></span>
+      </div>
+
+      <div class="card">
+        <h2>Progress</h2>
+        <pre class="log-output" id="log-output">Nothing running yet.</pre>
+      </div>
+
+      <div class="card">
+        <h2>Reports</h2>
+        <ul class="reports-list" id="reports-list"></ul>
+        <p class="hint" id="reports-empty" style="display:none">No reports yet -- run DailyBot at least once.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Credentials -- never commit real login details
+.env
+
+# Reinstalled per machine
+node_modules/
+
+# Per-machine runtime state and output
+sessions/
+logs/
+reports/
+screenshots/
+
+# Local data entries are personal to whoever's running this install
+data/dailyLog.xlsx
+data/~$*.xlsx
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
