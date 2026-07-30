@@ -77,32 +77,27 @@ reports. They all run the same underlying automation.
 
 ## Updating
 
-If your copy already has `Update.bat`, just double-click it -- it pulls
-the latest version and reinstalls dependencies if needed, without
-touching your login, entries, or reports.
+Just double-click **`Update.bat`**. It works either way:
 
-If it's an **older copy that doesn't have `Update.bat` yet**:
+- **If your copy is a git clone**: pulls the latest version and
+  reinstalls dependencies if needed, in place, without touching your
+  login, entries, or reports.
+- **If your copy is an older, plain folder copy** (a zip someone sent
+  you, no update history): it downloads a fresh copy into a sibling
+  folder named `DailyBot-GUI-updated`, copies your `.env`,
+  `data/dailyLog.xlsx`, `data/locations.json`, and `sessions/` into it,
+  and installs dependencies there. You'll be told exactly where the
+  updated copy is -- switch to using that folder (`Run DailyBot GUI.bat`
+  inside it) and delete the old one once you've confirmed it works.
 
-- **It's a git clone** (there's a hidden `.git` folder inside it): open a
-  terminal in the folder and run:
-  ```bash
-  git pull
-  npm install
-  ```
-  This also pulls down `Update.bat` itself, so every update after this
-  one is back to just double-clicking it.
+Either way, you may be asked to sign in to GitHub the first time.
 
-- **It's a plain folder copy** (a zip someone sent you, no `.git`
-  folder): there's no history to pull from, so instead:
-  1. Get a fresh copy -- either `git clone
-     https://github.com/ahakelechi/dailybot-gui.git` into a new folder,
-     or download the ZIP from the repo's green **Code** button on GitHub
-     and unzip it as a new folder.
-  2. From your **old** folder, copy these into the new one: `.env`,
-     `data/dailyLog.xlsx`, `data/locations.json`, and the whole
-     `sessions/` folder.
-  3. Run `npm install` in the new folder (or double-click `Setup.bat` --
-     it detects your existing `.env` and offers to keep it).
+If `Update.bat` itself doesn't exist yet in your copy (a very old
+install), you'll need one manual step first: open a terminal in the
+folder and run `git pull` if it's a git clone, or download the latest
+ZIP from the repo's green **Code** button on GitHub if it isn't. That
+brings in `Update.bat`, and every update after that is back to just a
+double-click.
 
 ## If something goes wrong
 
