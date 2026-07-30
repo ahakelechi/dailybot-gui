@@ -77,27 +77,30 @@ reports. They all run the same underlying automation.
 
 ## Updating
 
-Just double-click **`Update.bat`**. It works either way:
+Just double-click **`Update.bat`**. No git required on the computer --
+it works even on one that's never had git installed:
 
 - **If your copy is a git clone**: pulls the latest version and
   reinstalls dependencies if needed, in place, without touching your
-  login, entries, or reports.
+  login, entries, or reports. (This one does need git, since that's how
+  the copy got there in the first place.)
 - **If your copy is an older, plain folder copy** (a zip someone sent
-  you, no update history): it downloads a fresh copy into a sibling
-  folder named `DailyBot-GUI-updated`, copies your `.env`,
+  you, no update history): it fetches a fresh copy into a sibling folder
+  named `DailyBot-GUI-updated` -- via git if it's available (nicer, since
+  the new copy can then just use the simple in-place path next time), or
+  a plain direct download otherwise (this repo is public, so no sign-in
+  or git needed at all for this) -- then copies your `.env`,
   `data/dailyLog.xlsx`, `data/locations.json`, and `sessions/` into it,
   and installs dependencies there. You'll be told exactly where the
   updated copy is -- switch to using that folder (`Run DailyBot GUI.bat`
-  inside it) and delete the old one once you've confirmed it works.
-
-Either way, you may be asked to sign in to GitHub the first time.
+  inside it) and delete the old one once you've confirmed it works. If
+  Node.js isn't installed either, it'll tell you to run `Setup.bat` in
+  the new folder instead, which installs that automatically too.
 
 If `Update.bat` itself doesn't exist yet in your copy (a very old
-install), you'll need one manual step first: open a terminal in the
-folder and run `git pull` if it's a git clone, or download the latest
-ZIP from the repo's green **Code** button on GitHub if it isn't. That
-brings in `Update.bat`, and every update after that is back to just a
-double-click.
+install), get any newer copy once by hand -- download the ZIP from the
+repo's green **Code** button on GitHub, or `git pull`/`git clone` if you
+have git -- and every update after that is back to just a double-click.
 
 ## If something goes wrong
 
