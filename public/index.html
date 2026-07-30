@@ -49,11 +49,6 @@
             <label>Longitude
               <input type="text" id="settings-lng" placeholder="3.3792">
             </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="settings-headless">
-              Run in the background (no visible browser window)
-            </label>
-            <p class="hint warning">Only enable this after DailyBot has run successfully with the browser visible at least once -- with it on, you won't see a login code prompt if one shows up.</p>
           </div>
         </details>
       </div>
@@ -63,30 +58,45 @@
         <details>
           <summary>Timing, retries &amp; behavior</summary>
           <div class="advanced-body">
-            <p class="hint">These map directly to the underlying <code>.env</code> file. The defaults work well -- only change these if you know why you're changing them. A few (marked *) need DailyBot GUI restarted to take effect; everything else applies on the very next run.</p>
+            <p class="hint">These map directly to the underlying <code>.env</code> file. The defaults work well -- only change these if you know why you're changing them. Applies on the very next run unless noted otherwise.</p>
 
-            <label>Slow motion (ms) -- adds a delay before every click/type, useful for watching what DailyBot is doing
+            <label>Headless (run in the background)
+              <span class="field-hint">True = no visible browser window. Only switch this to True after DailyBot has run successfully at least once with the window visible -- with it on, you won't see a login-code prompt if one shows up.</span>
+              <select id="settings-headless">
+                <option value="false">False -- show the browser window (recommended)</option>
+                <option value="true">True -- run hidden in the background</option>
+              </select>
+            </label>
+            <label>Slow motion (ms)
+              <span class="field-hint">Adds a delay before every click/type -- useful for watching what DailyBot is doing.</span>
               <input type="number" id="settings-slowmo" min="0" step="50">
             </label>
-            <label>Page navigation timeout (ms) -- floored at 20000 no matter what's entered
+            <label>Page navigation timeout (ms)
+              <span class="field-hint">Floored at 20000 no matter what's entered.</span>
               <input type="number" id="settings-timeout-nav" min="20000" step="1000">
             </label>
-            <label>Action timeout (ms) -- how long to wait for a click/field to appear
+            <label>Action timeout (ms)
+              <span class="field-hint">How long to wait for a click or field to appear.</span>
               <input type="number" id="settings-timeout-action" min="1000" step="1000">
             </label>
-            <label>Login-code wait (ms) -- floored at 45000, a human needs time to read and type it
+            <label>Login-code wait (ms)
+              <span class="field-hint">Floored at 45000 -- a human needs time to read and type it.</span>
               <input type="number" id="settings-timeout-otp" min="45000" step="5000">
             </label>
-            <label>Retry attempts -- how many times to retry a failed step
+            <label>Retry attempts
+              <span class="field-hint">How many times to retry a failed step.</span>
               <input type="number" id="settings-retry-attempts" min="1" max="10" step="1">
             </label>
-            <label>Retry delay (ms) -- capped at 15000, so a retry never looks like a hang
+            <label>Retry delay (ms)
+              <span class="field-hint">Capped at 15000, so a retry never looks like a hang.</span>
               <input type="number" id="settings-retry-delay" min="0" max="15000" step="500">
             </label>
-            <label>Days before a log is too old to edit -- matches the site's own rule (2 by default); only raise this if the site's rule genuinely changes
+            <label>Days before a log is too old to edit
+              <span class="field-hint">Matches the site's own rule (2 by default) -- only raise this if the site's rule genuinely changes.</span>
               <input type="number" id="settings-max-edit-age" min="0" step="1">
             </label>
             <label>Log detail level *
+              <span class="field-hint">* needs a restart of DailyBot GUI to take effect.</span>
               <select id="settings-log-level">
                 <option value="error">Error only</option>
                 <option value="warn">Warnings + errors</option>

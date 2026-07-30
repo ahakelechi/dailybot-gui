@@ -29,7 +29,7 @@
     document.getElementById("settings-email").value = data.email || "";
     document.getElementById("settings-lat").value = data.geoLatitude ?? "";
     document.getElementById("settings-lng").value = data.geoLongitude ?? "";
-    document.getElementById("settings-headless").checked = Boolean(data.headless);
+    document.getElementById("settings-headless").value = data.headless ? "true" : "false";
     document.getElementById("password-status").textContent = data.hasPassword
       ? "A password is already saved. Leave the field blank to keep it."
       : "No password saved yet.";
@@ -54,7 +54,7 @@
       password: document.getElementById("settings-password").value,
       geoLatitude: document.getElementById("settings-lat").value,
       geoLongitude: document.getElementById("settings-lng").value,
-      headless: document.getElementById("settings-headless").checked,
+      headless: document.getElementById("settings-headless").value === "true",
       slowMo: document.getElementById("settings-slowmo").value,
       timeoutNavigation: document.getElementById("settings-timeout-nav").value,
       timeoutAction: document.getElementById("settings-timeout-action").value,

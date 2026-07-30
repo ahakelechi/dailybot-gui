@@ -104,6 +104,16 @@ label {
 
 label.full-width { grid-column: 1 / -1; }
 
+.field-hint {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  opacity: 0.8;
+  margin: 2px 0 5px;
+  line-height: 1.4;
+}
+
 input, textarea {
   display: block;
   width: 100%;
@@ -122,15 +132,20 @@ input:focus, textarea:focus {
   outline-offset: -1px;
 }
 
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-}
-.checkbox-row input { width: auto; margin: 0; }
-
 .advanced-body { margin-top: 14px; }
+
+select {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 9px 10px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+}
 
 details summary {
   cursor: pointer;
