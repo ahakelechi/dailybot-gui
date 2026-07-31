@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(ls -la \"C:\\\\Users\\\\MS-KELVIN-NIG-LT\\\\Downloads\")",
-      "Bash(rsync -a --exclude='node_modules' --exclude='.env' --exclude='sessions' --exclude='logs' --exclude='reports' --exclude='screenshots' --exclude='data/dailyLog.xlsx' dailybot-gui-main-updated/ dailybot-gui-chinazam/)"
-    ]
-  }
-}
