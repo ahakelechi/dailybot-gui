@@ -60,7 +60,10 @@ const config = {
       // The site uses 6 separate single-digit OTP boxes, not one field.
       otpDigitCount: 6,
       otpDigit: (page, index) => page.getByTestId(`login-otp-digit-${index}`),
-      loggedInMarker: (page) => page.getByRole("link", { name: "Log My Day" }),
+      // Different account roles show different sidebar labels for the same
+      // feature -- e.g. "Log My Day" (some roles) vs "Daily Log" (others) --
+      // so this has to match either, same as dashboard.dailyLogLink below.
+      loggedInMarker: (page) => page.getByRole("link", { name: /^(Log My Day|Daily Log)$/ }),
     },
     dashboard: {
       // Confirmed via screenshots from real runs: the sidebar nav item
