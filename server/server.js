@@ -609,6 +609,10 @@ const server = http.createServer(async (req, res) => {
       serveStaticFile(res, PUBLIC_DIR, pathname.replace("/public/", ""));
       return;
     }
+    if (req.method === "GET" && pathname.startsWith("/docs/")) {
+      serveStaticFile(res, path.join(ROOT, "docs"), pathname.replace("/docs/", ""));
+      return;
+    }
     if (req.method === "GET" && pathname === "/api/settings") return handleGetSettings(req, res);
     if (req.method === "POST" && pathname === "/api/settings") return await handlePostSettings(req, res);
 

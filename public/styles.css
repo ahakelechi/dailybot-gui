@@ -66,6 +66,7 @@ body {
 .topbar {
   display: flex;
   align-items: center;
+  gap: 10px;
   padding: 22px 28px 10px;
 }
 
@@ -379,8 +380,22 @@ details summary::marker { color: var(--brass); }
   margin-top: 12px;
 }
 
-.theme-toggle {
+.help-link {
   margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ivory-dim);
+  text-decoration: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.help-link:hover { color: var(--brass-bright); border-color: var(--brass); }
+.help-link:focus-visible { outline: 2px solid var(--brass-bright); outline-offset: 2px; }
+
+.theme-toggle {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.08em;
