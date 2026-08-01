@@ -7,6 +7,27 @@
   "use strict";
 
   // ---------------------------------------------------------------------
+  // Theme (Ink / Paper)
+  // ---------------------------------------------------------------------
+  (function initTheme() {
+    var root = document.documentElement;
+    var toggle = document.getElementById("themeToggle");
+    var stored = null;
+    try { stored = localStorage.getItem("dailybot-theme"); } catch (e) {}
+    if (stored) root.setAttribute("data-theme", stored);
+
+    function current() {
+      if (root.getAttribute("data-theme")) return root.getAttribute("data-theme");
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    toggle.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("dailybot-theme", next); } catch (e) {}
+    });
+  })();
+
+  // ---------------------------------------------------------------------
   // Tabs
   // ---------------------------------------------------------------------
   document.querySelectorAll(".tab-btn").forEach((btn) => {
