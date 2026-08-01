@@ -14,7 +14,7 @@ const logger = require("./utils/logger");
 const { validateSubmission } = require("./utils/validation");
 const { takeScreenshot } = require("./utils/screenshots");
 const { withRetry } = require("./utils/retry");
-const { waitVisible } = require("./utils/helpers");
+const { waitVisible, sanitizeForFilename } = require("./utils/helpers");
 const { captureDuring } = require("./utils/networkCapture");
 
 /**
@@ -35,6 +35,14 @@ async function submitEntry(page, entry, options = {}) {
   if (!partner) {
     throw new Error("Row is missing a Partner value -- skipping is unsafe, fix data/dailyLog.xlsx.");
   }
+
+  // Partner is free text from the GUI's Add Entry form -- fine to use
+  // as-is for matching the real site's combobox, but NOT safe to drop
+  // straight into a filename (a "/", "\", or ".." could write outside
+  // the intended folder, or just fail to save). These sanitized copies
+  // are only ever used for screenshot/diagnostic filenames below.
+  const partnerForFilename = sanitizeForFilename(partner);
+  const dateForFilename = sanitizeForFilename(entry.Date || "unknown-date");
 
   return withRetry(
     async () => {
@@ -114,10 +122,10 @@ async function submitEntry(page, entry, options = {}) {
         // failure -- this is the fastest way to tell whether typing
         // didn't filter it, the option renders differently than expected,
         // or the partner name genuinely isn't in the list.
-        await takeScreenshot(page, { name: `partner-not-found-${partner}` });
+        await takeScreenshot(page, { name: `partner-not-found-${partnerForFilename}` });
         throw new Error(
           `Partner option "${partner}" did not appear after typing into the combobox. ` +
-            `Check the partner-not-found-${partner} screenshot in screenshots/.`
+            `Check the partner-not-found-${partnerForFilename} screenshot in screenshots/.`
         );
       }
       await option.click();
@@ -156,7 +164,7 @@ async function submitEntry(page, entry, options = {}) {
             // end state instead of a transient "saving..." frame.
             await validateSubmission(page);
           },
-          `submit-${entry.Date || "unknown-date"}-${partner}`
+          `submit-${dateForFilename}-${partnerForFilename}`
         );
 
         const saveRequest = dump.apiResponses.find(
@@ -172,12 +180,12 @@ async function submitEntry(page, entry, options = {}) {
           throw new Error(`Save rejected by the server (${saveRequest.status}): ${serverMessage}`);
         }
       } catch (err) {
-        await takeScreenshot(page, { name: `submit-failed-${partner}` });
+        await takeScreenshot(page, { name: `submit-failed-${partnerForFilename}` });
         throw err;
       }
 
       await takeScreenshot(page, {
-        name: `post-save-${entry.Date || "unknown-date"}-${partner}`,
+        name: `post-save-${dateForFilename}-${partnerForFilename}`,
       });
 
       logger.info(

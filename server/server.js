@@ -415,7 +415,12 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+// Bind explicitly to localhost -- Node defaults to all network
+// interfaces (0.0.0.0) when no host is given, which would make this
+// server (saved credentials, a button that triggers a real automation
+// run, zero authentication) reachable by anyone else on the same
+// network, not just this computer.
+server.listen(PORT, "127.0.0.1", () => {
   console.log("====================================");
   console.log("   DailyBot GUI running");
   console.log(`   http://localhost:${PORT}`);

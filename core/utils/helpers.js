@@ -83,6 +83,23 @@ function ensureDir(dirPath) {
   return dirPath;
 }
 
+/**
+ * Make a string safe to use as (part of) a filename. Partner names come
+ * from free-text input in the GUI's Add Entry form and flow straight
+ * into screenshot/diagnostic filenames -- without this, a name
+ * containing "/", "\", or ".." could write outside the intended folder,
+ * or just silently fail to save.
+ *
+ * @param {*} value
+ * @returns {string}
+ */
+function sanitizeForFilename(value) {
+  return String(value)
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\.\./g, "_")
+    .trim() || "unknown";
+}
+
 module.exports = {
   sleep,
   wait,
@@ -92,4 +109,5 @@ module.exports = {
   random,
   ensureDir,
   waitVisible,
+  sanitizeForFilename,
 };
