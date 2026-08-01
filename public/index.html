@@ -21,6 +21,7 @@
     <button class="tab-btn active" data-tab="settings">Settings</button>
     <button class="tab-btn" data-tab="entries">Daily Entries</button>
     <button class="tab-btn" data-tab="run">Run &amp; Reports</button>
+    <button class="tab-btn" data-tab="scheduler">Scheduler</button>
   </nav>
 
   <main>
@@ -32,8 +33,8 @@
         <label>Email
           <input type="email" id="settings-email" placeholder="you@company.com" autocomplete="username">
         </label>
-        <label>Password
-          <input type="password" id="settings-password" placeholder="Leave blank to keep the current password" autocomplete="new-password">
+        <label>Password <span id="password-badge" class="badge" style="display:none"></span>
+          <input type="password" id="settings-password" placeholder="Enter your portal password" autocomplete="new-password">
         </label>
         <p class="hint" id="password-status"></p>
       </div>
@@ -220,6 +221,55 @@
         <h2>Reports</h2>
         <ul class="reports-list" id="reports-list"></ul>
         <p class="hint" id="reports-empty" style="display:none">No reports yet -- run DailyBot at least once.</p>
+      </div>
+    </section>
+
+    <!-- ============================== SCHEDULER ============================== -->
+    <section id="tab-scheduler" class="tab-panel">
+      <div class="card">
+        <h2>Automatic Runs</h2>
+        <p class="hint">Runs DailyBot by itself at a set time, as long as this computer is on (not asleep) and DailyBot GUI is running. If a login code is needed that day, someone still needs to be there to type it in -- same as running it manually.</p>
+
+        <label>Scheduler
+          <select id="scheduler-enabled">
+            <option value="false">Off</option>
+            <option value="true">On</option>
+          </select>
+        </label>
+
+        <label>Time of day
+          <input type="time" id="scheduler-time" value="08:00">
+        </label>
+
+        <label class="full-width">Days
+          <div class="weekday-row" id="scheduler-weekdays">
+            <label class="weekday-chip"><input type="checkbox" value="1" checked> Mon</label>
+            <label class="weekday-chip"><input type="checkbox" value="2" checked> Tue</label>
+            <label class="weekday-chip"><input type="checkbox" value="3" checked> Wed</label>
+            <label class="weekday-chip"><input type="checkbox" value="4" checked> Thu</label>
+            <label class="weekday-chip"><input type="checkbox" value="5" checked> Fri</label>
+            <label class="weekday-chip"><input type="checkbox" value="6" checked> Sat</label>
+            <label class="weekday-chip"><input type="checkbox" value="0"> Sun</label>
+          </div>
+        </label>
+
+        <p class="status-msg" id="scheduler-next-run"></p>
+
+        <details>
+          <summary>Advanced: raw cron expression</summary>
+          <div class="advanced-body">
+            <p class="hint">Fill this in to override the picker above with a custom cron pattern (e.g. <code>0 8 * * 1-5</code>). Leave blank to use the time/days picker instead.</p>
+            <label>Cron expression
+              <input type="text" id="scheduler-cron" placeholder="e.g. 0 8 * * 1-5">
+            </label>
+            <label>Timezone
+              <input type="text" id="scheduler-timezone" placeholder="e.g. Africa/Lagos">
+            </label>
+          </div>
+        </details>
+
+        <button class="primary-btn" id="save-scheduler-btn">Save Schedule</button>
+        <p class="status-msg" id="scheduler-status"></p>
       </div>
     </section>
   </main>

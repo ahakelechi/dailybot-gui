@@ -20,6 +20,7 @@
         loadLocations();
       }
       if (btn.dataset.tab === "run") loadReports();
+      if (btn.dataset.tab === "scheduler") loadScheduler();
     });
   });
 
@@ -33,9 +34,28 @@
     document.getElementById("settings-lat").value = data.geoLatitude ?? "";
     document.getElementById("settings-lng").value = data.geoLongitude ?? "";
     document.getElementById("settings-headless").value = data.headless ? "true" : "false";
-    document.getElementById("password-status").textContent = data.hasPassword
-      ? "A password is already saved. Leave the field blank to keep it."
-      : "No password saved yet.";
+
+    // The field itself always clears after saving (a saved password is
+    // never sent back to the browser to redisplay) -- without something
+    // else to look at, an empty box right after saving reads as "did
+    // that not work?". The badge + placeholder answer that at a glance,
+    // without needing to notice the hint line below.
+    const passwordInput = document.getElementById("settings-password");
+    const passwordBadge = document.getElementById("password-badge");
+    const passwordStatus = document.getElementById("password-status");
+    if (data.hasPassword) {
+      passwordBadge.textContent = "✓ Saved";
+      passwordBadge.className = "badge badge-ok";
+      passwordBadge.style.display = "";
+      passwordInput.placeholder = "•••••••• (saved -- leave blank to keep it)";
+      passwordStatus.textContent = "Type a new password to replace it, or leave this field blank to keep the saved one.";
+    } else {
+      passwordBadge.textContent = "Not set";
+      passwordBadge.className = "badge badge-off";
+      passwordBadge.style.display = "";
+      passwordInput.placeholder = "Enter your portal password";
+      passwordStatus.textContent = "No password saved yet -- DailyBot can't log in until you add one.";
+    }
 
     document.getElementById("settings-slowmo").value = data.slowMo ?? 0;
     document.getElementById("settings-timeout-nav").value = data.timeoutNavigation ?? 30000;
@@ -339,10 +359,85 @@
   }
 
   // ---------------------------------------------------------------------
+  // Scheduler
+  // ---------------------------------------------------------------------
+  function renderSchedulerStatus(data) {
+    const el = document.getElementById("scheduler-next-run");
+    if (!data.active) {
+      el.textContent = "Scheduler is off.";
+      el.className = "status-msg";
+    } else if (data.nextRun) {
+      el.textContent = `Scheduler is on -- next run: ${new Date(data.nextRun).toLocaleString()}`;
+      el.className = "status-msg ok";
+    } else {
+      el.textContent = "Scheduler is on.";
+      el.className = "status-msg ok";
+    }
+  }
+
+  async function loadScheduler() {
+    const res = await fetch("/api/scheduler");
+    const data = await res.json();
+
+    document.getElementById("scheduler-enabled").value = data.active ? "true" : "false";
+    document.getElementById("scheduler-timezone").value = data.timezone || "";
+
+    if (data.friendly) {
+      // A simple "daily at HH:MM on these weekdays" pattern -- the picker
+      // can represent it exactly, so show it there and leave the raw
+      // cron field blank (blank means "use the picker" when saving).
+      document.getElementById("scheduler-time").value = data.friendly.time;
+      document.querySelectorAll("#scheduler-weekdays input").forEach((cb) => {
+        cb.checked = data.friendly.weekdays.includes(Number(cb.value));
+      });
+      document.getElementById("scheduler-cron").value = "";
+    } else if (data.cronExpression) {
+      // Something more custom than the picker can represent -- show it
+      // in the raw field instead so it's still visible and editable.
+      document.getElementById("scheduler-cron").value = data.cronExpression;
+    }
+
+    renderSchedulerStatus(data);
+  }
+
+  document.getElementById("save-scheduler-btn").addEventListener("click", async () => {
+    const statusEl = document.getElementById("scheduler-status");
+    statusEl.textContent = "Saving...";
+    statusEl.className = "status-msg";
+
+    const weekdays = [...document.querySelectorAll("#scheduler-weekdays input:checked")].map((cb) => Number(cb.value));
+
+    const body = {
+      enabled: document.getElementById("scheduler-enabled").value === "true",
+      time: document.getElementById("scheduler-time").value,
+      weekdays,
+      cronExpression: document.getElementById("scheduler-cron").value,
+      timezone: document.getElementById("scheduler-timezone").value,
+    };
+
+    try {
+      const res = await fetch("/api/scheduler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Save failed");
+      statusEl.textContent = "Saved.";
+      statusEl.className = "status-msg ok";
+      renderSchedulerStatus(result);
+    } catch (err) {
+      statusEl.textContent = err.message;
+      statusEl.className = "status-msg err";
+    }
+  });
+
+  // ---------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------
   document.getElementById("entry-date").valueAsDate = new Date();
   loadSettings();
   loadLocations();
+  loadScheduler();
   connectStream();
 })();

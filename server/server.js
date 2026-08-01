@@ -297,16 +297,24 @@ async function handleDeleteEntry(req, res, rowNumber) {
   sendJson(res, 200, { ok: true });
 }
 
-async function handlePostRun(req, res) {
+/**
+ * Shared by the manual "Run Now" button and the scheduler firing --
+ * same run, same live log stream either way. Returns { started: false }
+ * instead of throwing if a run is already in progress, so each caller
+ * can decide how to report that (an HTTP 409 for a manual click, just a
+ * log line for a scheduled trigger nobody's watching).
+ *
+ * @param {"manual"|"scheduled"} triggeredBy
+ */
+function triggerRun(triggeredBy) {
   if (isRunning) {
-    sendJson(res, 409, { error: "A run is already in progress." });
-    return;
+    return { started: false };
   }
 
   isRunning = true;
   logBuffer = [];
   lastReportUrl = null;
-  broadcastLog("Starting DailyBot...");
+  broadcastLog(triggeredBy === "scheduled" ? "Scheduled run starting..." : "Starting DailyBot...");
 
   const { run } = require("../core/index");
 
@@ -323,6 +331,15 @@ async function handlePostRun(req, res) {
       isRunning = false;
     });
 
+  return { started: true };
+}
+
+async function handlePostRun(req, res) {
+  const result = triggerRun("manual");
+  if (!result.started) {
+    sendJson(res, 409, { error: "A run is already in progress." });
+    return;
+  }
   sendJson(res, 202, { started: true });
 }
 
@@ -343,6 +360,73 @@ function handleGetRunStream(req, res) {
 
 function handleGetRunStatus(req, res) {
   sendJson(res, 200, { running: isRunning, lastReportUrl });
+}
+
+function schedulerStatusPayload() {
+  const scheduler = require("../core/scheduler");
+  const status = scheduler.getStatus();
+  const friendly = status.cronExpression ? scheduler.parseSimpleCronExpression(status.cronExpression) : null;
+  return { ...status, friendly };
+}
+
+async function handleGetScheduler(req, res) {
+  sendJson(res, 200, schedulerStatusPayload());
+}
+
+async function handlePostScheduler(req, res) {
+  const body = await readJsonBody(req);
+  const scheduler = require("../core/scheduler");
+  const config = require("../core/config");
+
+  const enabled = Boolean(body.enabled);
+  const timezone = typeof body.timezone === "string" && body.timezone.trim() ? body.timezone.trim() : config.schedule.timezone;
+
+  // The On/Off toggle controls whether the schedule is ACTIVE, not
+  // whether an edit gets saved -- editing the time/days while toggled
+  // off should still be remembered for next time you turn it on. Only
+  // fall back to whatever's already configured when neither the picker
+  // nor the raw cron field actually supplied anything new (e.g. a plain
+  // {enabled:false} call with nothing else, which should never fail
+  // just because there's no time to build a cron from).
+  const hasNewSchedule =
+    (typeof body.cronExpression === "string" && body.cronExpression.trim()) ||
+    (typeof body.time === "string" && body.time.trim());
+
+  let cronExpression = config.schedule.cron;
+  if (hasNewSchedule) {
+    try {
+      cronExpression =
+        typeof body.cronExpression === "string" && body.cronExpression.trim()
+          ? body.cronExpression.trim()
+          : scheduler.buildCronExpression(body.time, body.weekdays);
+    } catch (err) {
+      sendJson(res, 400, { error: err.message });
+      return;
+    }
+  }
+
+  if (enabled) {
+    try {
+      scheduler.start(cronExpression, timezone, () => triggerRun("scheduled"));
+    } catch (err) {
+      sendJson(res, 400, { error: err.message });
+      return;
+    }
+  } else {
+    scheduler.stop();
+  }
+
+  updateEnvFile(ENV_PATH, {
+    SCHEDULE_CRON: cronExpression,
+    SCHEDULE_TZ: timezone,
+    SCHEDULER_AUTOSTART: String(enabled),
+  });
+  dotenv.config({ path: ENV_PATH, override: true });
+  config.schedule.cron = cronExpression;
+  config.schedule.timezone = timezone;
+  config.schedule.autoStart = enabled;
+
+  sendJson(res, 200, schedulerStatusPayload());
 }
 
 async function handleGetReports(req, res) {
@@ -397,6 +481,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && pathname === "/api/run/stream") return handleGetRunStream(req, res);
     if (req.method === "GET" && pathname === "/api/run/status") return handleGetRunStatus(req, res);
 
+    if (req.method === "GET" && pathname === "/api/scheduler") return await handleGetScheduler(req, res);
+    if (req.method === "POST" && pathname === "/api/scheduler") return await handlePostScheduler(req, res);
+
     if (req.method === "GET" && pathname === "/api/reports") return await handleGetReports(req, res);
     if (req.method === "GET" && pathname.startsWith("/reports/")) {
       const config = require("../core/config");
@@ -425,4 +512,16 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log("   DailyBot GUI running");
   console.log(`   http://localhost:${PORT}`);
   console.log("====================================");
+
+  // Resume the schedule from last time, if one was saved as enabled.
+  const config = require("../core/config");
+  if (config.schedule.autoStart && config.schedule.cron) {
+    const scheduler = require("../core/scheduler");
+    try {
+      scheduler.start(config.schedule.cron, config.schedule.timezone, () => triggerRun("scheduled"));
+      console.log(`   Scheduler resumed: "${config.schedule.cron}" (${config.schedule.timezone || "system timezone"})`);
+    } catch (err) {
+      console.log(`   Could not resume scheduler: ${err.message}`);
+    }
+  }
 });

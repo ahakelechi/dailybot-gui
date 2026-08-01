@@ -237,8 +237,8 @@ const config = {
   // Scheduler settings
   // ---------------------------------------------------------------------
   schedule: {
-    // Default: 08:00, Monday-Friday
-    cron: process.env.SCHEDULE_CRON || "0 8 * * 1-5",
+    // Default: 08:00, Monday-Saturday
+    cron: process.env.SCHEDULE_CRON || "0 8 * * 1-6",
     timezone: process.env.SCHEDULE_TZ || "Africa/Lagos",
     autoStart: process.env.SCHEDULER_AUTOSTART === "true",
   },
