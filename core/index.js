@@ -115,6 +115,20 @@ async function run(options = {}) {
         continue;
       }
 
+      // The site also blocks the opposite direction: a date doesn't open
+      // up for logging until that day actually arrives, no matter how far
+      // ahead it's entered here. Skip it now rather than run the whole
+      // fill-and-submit flow against a date the site won't accept yet --
+      // it'll be picked up automatically on a future run once daysOld
+      // reaches 0.
+      if (daysOld < 0) {
+        const message = `${date} is a future date -- the site won't open it for logging until that day arrives.`;
+        logger.warning(`Skipping ${date} -- ${message}`);
+        emit(`Skipping ${date} -- ${message}`);
+        errors.push(...dayEntries.map((e) => ({ partner: e.Partner, date, message })));
+        continue;
+      }
+
       // Don't check login status pre-emptively before every date -- that
       // races against the SPA re-hydrating its client-side auth state and
       // produces false "session expired" positives more often than the

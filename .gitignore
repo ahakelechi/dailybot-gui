@@ -18,3 +18,6 @@ data/locations.json
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Local dev-preview tooling config, not part of the app
+.claude/

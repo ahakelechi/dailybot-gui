@@ -14,6 +14,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 const dotenv = require("dotenv");
 
 const ROOT = path.join(__dirname, "..");
@@ -33,6 +34,31 @@ let isRunning = false;
 let logBuffer = [];
 const sseClients = new Set();
 let lastReportUrl = null;
+
+// ---------------------------------------------------------------------
+// Update state. Shares the same "only one automation thing at a time"
+// rule as isRunning -- an update can rewrite core/ files out from under
+// a running Playwright process, and a run holds the one browser session
+// an update shouldn't be touched during either.
+// ---------------------------------------------------------------------
+let isUpdating = false;
+let updateLogBuffer = [];
+const updateSseClients = new Set();
+let lastUpdateResult = null;
+
+function broadcastUpdateLog(line) {
+  updateLogBuffer.push(line);
+  if (updateLogBuffer.length > 500) updateLogBuffer.shift();
+  for (const res of updateSseClients) {
+    res.write(`event: log\ndata: ${JSON.stringify(line)}\n\n`);
+  }
+}
+
+function broadcastUpdateDone(payload) {
+  for (const res of updateSseClients) {
+    res.write(`event: done\ndata: ${JSON.stringify(payload)}\n\n`);
+  }
+}
 
 function broadcastLog(line) {
   logBuffer.push(line);
@@ -307,7 +333,7 @@ async function handleDeleteEntry(req, res, rowNumber) {
  * @param {"manual"|"scheduled"} triggeredBy
  */
 function triggerRun(triggeredBy) {
-  if (isRunning) {
+  if (isRunning || isUpdating) {
     return { started: false };
   }
 
@@ -448,6 +474,120 @@ async function handleGetReports(req, res) {
   sendJson(res, 200, files);
 }
 
+async function handleGetVersion(req, res) {
+  const gitDir = path.join(ROOT, ".git");
+  if (!fs.existsSync(gitDir)) {
+    sendJson(res, 200, { isGit: false });
+    return;
+  }
+  const { execFile } = require("child_process");
+  execFile("git", ["log", "-1", "--format=%h %ci"], { cwd: ROOT }, (err, stdout) => {
+    if (err) {
+      sendJson(res, 200, { isGit: true, commit: null });
+      return;
+    }
+    const [hash, ...dateParts] = stdout.trim().split(" ");
+    sendJson(res, 200, { isGit: true, commit: hash, date: dateParts.join(" ") });
+  });
+}
+
+async function handleGetUpdateStatus(req, res) {
+  sendJson(res, 200, { updating: isUpdating, lastResult: lastUpdateResult });
+}
+
+function handleGetUpdateStream(req, res) {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  res.write(`event: status\ndata: ${JSON.stringify({ updating: isUpdating })}\n\n`);
+  for (const line of updateLogBuffer) {
+    res.write(`event: log\ndata: ${JSON.stringify(line)}\n\n`);
+  }
+
+  updateSseClients.add(res);
+  req.on("close", () => updateSseClients.delete(res));
+}
+
+// Recognized as the last line update-core.ps1 prints -- see that file for
+// what each variant means. Everything else it prints is just for humans.
+const UPDATE_RESULT_PREFIX = "RESULT:";
+
+async function handlePostUpdate(req, res) {
+  if (isRunning) {
+    sendJson(res, 409, { error: "A run is in progress -- wait for it to finish before updating." });
+    return;
+  }
+  if (isUpdating) {
+    sendJson(res, 409, { error: "An update is already in progress." });
+    return;
+  }
+
+  isUpdating = true;
+  updateLogBuffer = [];
+  lastUpdateResult = null;
+  broadcastUpdateLog("Starting update...");
+
+  const scriptPath = path.join(ROOT, "update-core.ps1");
+  const child = spawn(
+    "powershell.exe",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+    { cwd: ROOT }
+  );
+
+  let resultLine = null;
+  let stdoutTail = "";
+
+  const handleChunk = (chunk) => {
+    stdoutTail += chunk.toString();
+    const lines = stdoutTail.split(/\r?\n/);
+    stdoutTail = lines.pop(); // last piece may be incomplete -- hold it for the next chunk
+    for (const line of lines) {
+      if (line.startsWith(UPDATE_RESULT_PREFIX)) {
+        resultLine = line.slice(UPDATE_RESULT_PREFIX.length);
+        continue; // machine-readable marker, not for the log
+      }
+      if (line.trim()) broadcastUpdateLog(line);
+    }
+  };
+
+  child.stdout.on("data", handleChunk);
+  child.stderr.on("data", handleChunk);
+
+  child.on("close", (code) => {
+    if (stdoutTail.trim() && !stdoutTail.startsWith(UPDATE_RESULT_PREFIX)) {
+      broadcastUpdateLog(stdoutTail);
+    }
+
+    let payload;
+    if (resultLine === "SUCCESS_INPLACE") {
+      payload = { ok: true, mode: "inplace" };
+    } else if (resultLine && resultLine.startsWith("SUCCESS_NEWFOLDER_NO_NODE:")) {
+      payload = { ok: true, mode: "newfolder-no-node", path: resultLine.split(":").slice(1).join(":") };
+    } else if (resultLine && resultLine.startsWith("SUCCESS_NEWFOLDER:")) {
+      payload = { ok: true, mode: "newfolder", path: resultLine.split(":").slice(1).join(":") };
+    } else if (resultLine === "FAILED") {
+      payload = { ok: false, error: "Update failed -- see the log above for why." };
+    } else {
+      payload = { ok: false, error: code === 0 ? "Update finished without a clear result -- check the log above." : `Update script exited unexpectedly (code ${code}) -- check the log above.` };
+    }
+
+    lastUpdateResult = payload;
+    isUpdating = false;
+    broadcastUpdateDone(payload);
+  });
+
+  child.on("error", (err) => {
+    const payload = { ok: false, error: `Could not start the update script: ${err.message}` };
+    lastUpdateResult = payload;
+    isUpdating = false;
+    broadcastUpdateDone(payload);
+  });
+
+  sendJson(res, 202, { started: true });
+}
+
 // ---------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------
@@ -485,6 +625,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && pathname === "/api/scheduler") return await handlePostScheduler(req, res);
 
     if (req.method === "GET" && pathname === "/api/reports") return await handleGetReports(req, res);
+
+    if (req.method === "GET" && pathname === "/api/version") return await handleGetVersion(req, res);
+    if (req.method === "POST" && pathname === "/api/update") return await handlePostUpdate(req, res);
+    if (req.method === "GET" && pathname === "/api/update/stream") return handleGetUpdateStream(req, res);
+    if (req.method === "GET" && pathname === "/api/update/status") return await handleGetUpdateStatus(req, res);
     if (req.method === "GET" && pathname.startsWith("/reports/")) {
       const config = require("../core/config");
       serveStaticFile(res, config.paths.reports, pathname.replace("/reports/", ""));

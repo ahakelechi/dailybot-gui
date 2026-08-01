@@ -115,6 +115,18 @@
 
       <button class="primary-btn" id="save-settings-btn">Save Settings</button>
       <p class="status-msg" id="settings-status"></p>
+
+      <div class="card">
+        <h2>Software Update</h2>
+        <div class="update-meta">
+          <span class="update-version" id="update-version">Checking version…</span>
+          <span class="update-dot" id="update-dot"></span>
+        </div>
+        <p class="hint">Fetches the latest version of DailyBot GUI. Your login, entries, and saved locations are kept -- nothing here is lost. Don't close this window while an update is running.</p>
+        <button class="primary-btn" id="update-btn">Check for Update</button>
+        <p class="status-msg" id="update-status"></p>
+        <pre class="log-output update-log" id="update-log" style="display:none"></pre>
+      </div>
     </section>
 
     <!-- ============================== ENTRIES ============================== -->

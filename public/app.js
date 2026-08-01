@@ -454,11 +454,102 @@
   });
 
   // ---------------------------------------------------------------------
+  // Software Update
+  // ---------------------------------------------------------------------
+  const updateBtn = document.getElementById("update-btn");
+  const updateLog = document.getElementById("update-log");
+  const updateStatus = document.getElementById("update-status");
+  const updateDot = document.getElementById("update-dot");
+  let updateEventSource = null;
+
+  async function loadVersion() {
+    const versionEl = document.getElementById("update-version");
+    try {
+      const res = await fetch("/api/version");
+      const data = await res.json();
+      if (!data.isGit) {
+        versionEl.textContent = "Plain copy (not tracked by git)";
+        return;
+      }
+      if (!data.commit) {
+        versionEl.textContent = "Version unknown";
+        return;
+      }
+      const date = data.date ? new Date(data.date).toLocaleDateString() : "";
+      versionEl.textContent = `Version ${data.commit}${date ? " · " + date : ""}`;
+    } catch (err) {
+      versionEl.textContent = "Could not check version";
+    }
+  }
+
+  function appendUpdateLog(line) {
+    updateLog.style.display = "block";
+    updateLog.textContent += line + "\n";
+    updateLog.scrollTop = updateLog.scrollHeight;
+  }
+
+  function setUpdating(updating) {
+    updateBtn.disabled = updating;
+    updateBtn.textContent = updating ? "Updating…" : "Check for Update";
+    updateDot.className = "update-dot" + (updating ? " update-dot-active" : "");
+  }
+
+  function connectUpdateStream() {
+    if (updateEventSource) updateEventSource.close();
+    updateEventSource = new EventSource("/api/update/stream");
+
+    updateEventSource.addEventListener("status", (e) => {
+      const { updating } = JSON.parse(e.data);
+      setUpdating(updating);
+    });
+    updateEventSource.addEventListener("log", (e) => appendUpdateLog(JSON.parse(e.data)));
+    updateEventSource.addEventListener("done", (e) => {
+      const payload = JSON.parse(e.data);
+      setUpdating(false);
+      updateEventSource.close();
+      updateEventSource = null;
+
+      if (payload.ok && payload.mode === "inplace") {
+        updateStatus.textContent = "Updated. Close and reopen “Run DailyBot GUI” for the changes to take effect.";
+        updateStatus.className = "status-msg ok";
+        loadVersion();
+      } else if (payload.ok && payload.mode === "newfolder") {
+        updateStatus.textContent = `Updated copy ready at ${payload.path}. Use that folder from now on -- start "Run DailyBot GUI.bat" there instead of here.`;
+        updateStatus.className = "status-msg ok";
+      } else if (payload.ok && payload.mode === "newfolder-no-node") {
+        updateStatus.textContent = `Files ready at ${payload.path}, but Node.js isn't installed on this computer. Double-click Setup.bat in that folder to finish.`;
+        updateStatus.className = "status-msg ok";
+      } else {
+        updateStatus.textContent = payload.error || "Update failed -- see the log above.";
+        updateStatus.className = "status-msg err";
+      }
+    });
+  }
+
+  updateBtn.addEventListener("click", async () => {
+    updateStatus.textContent = "";
+    updateStatus.className = "status-msg";
+    updateLog.textContent = "";
+    updateLog.style.display = "block";
+
+    const res = await fetch("/api/update", { method: "POST" });
+    if (res.status === 409) {
+      const result = await res.json();
+      updateStatus.textContent = result.error;
+      updateStatus.className = "status-msg err";
+      return;
+    }
+    setUpdating(true);
+    connectUpdateStream();
+  });
+
+  // ---------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------
   document.getElementById("entry-date").valueAsDate = new Date();
   loadSettings();
   loadLocations();
   loadScheduler();
+  loadVersion();
   connectStream();
 })();
