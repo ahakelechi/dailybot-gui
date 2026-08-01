@@ -34,6 +34,13 @@ underlying automation (`core/`), plus a local web GUI (`server/` +
   appear on screen asking for it, type it into *that* window, not the
   control panel. Progress streams live in the Progress panel, and every
   run leaves a report you can open from the Reports list.
+- **Scheduler tab** -- turn this on to run DailyBot by itself at a set
+  time (default: 08:00, Monday-Saturday) instead of clicking Run Now
+  every day. Pick a time and which days; a raw cron field under
+  Advanced covers anything the picker can't express. Two things this
+  can't get around: the computer needs to be on (not asleep) and DailyBot
+  GUI needs to be running at that time, and if a login code is needed
+  that day, someone still needs to be there to type it in.
 
 Leave the black terminal window (from `Run DailyBot GUI.bat`) open while
 you use the control panel -- closing it stops DailyBot. Closing just the
