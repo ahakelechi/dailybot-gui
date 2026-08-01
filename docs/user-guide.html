@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DailyBot GUI — User Guide</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --ink: #12141a;
+  --paper: #1b1e26;
+  --paper-raised: #22262f;
+  --ivory: #ede9e0;
+  --ivory-dim: #a7a49c;
+  --brass: #c89b5c;
+  --brass-bright: #e0b876;
+  --line: rgba(237, 234, 226, 0.14);
+  --line-strong: rgba(237, 234, 226, 0.26);
+  --success: #7fae7a;
+  --error: #d98a72;
+  --display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+:root[data-theme="light"] {
+  --ink: #f3ede1; --paper: #e9e0cd; --paper-raised: #ded3ba;
+  --ivory: #24201a; --ivory-dim: #675f4f;
+  --brass: #8a6529; --brass-bright: #6e4f1c;
+  --line: rgba(36, 32, 26, 0.14); --line-strong: rgba(36, 32, 26, 0.28);
+  --success: #3f7a3a; --error: #a1432c;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ink: #f3ede1; --paper: #e9e0cd; --paper-raised: #ded3ba;
+    --ivory: #24201a; --ivory-dim: #675f4f;
+    --brass: #8a6529; --brass-bright: #6e4f1c;
+    --line: rgba(36, 32, 26, 0.14); --line-strong: rgba(36, 32, 26, 0.28);
+    --success: #3f7a3a; --error: #a1432c;
+  }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--ivory);
+  font-family: var(--body);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+::selection { background: var(--brass); color: var(--ink); }
+
+a { color: var(--brass-bright); }
+code {
+  font-family: var(--mono);
+  background: var(--paper-raised);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+
+/* ---- Shell layout: sticky nav + content column ---- */
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .toc { display: none; }
+}
+
+.toc {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 28px 18px 28px 28px;
+  border-right: 1px solid var(--line);
+}
+.toc-title {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ivory-dim);
+  margin: 0 0 14px;
+}
+.toc nav { display: flex; flex-direction: column; gap: 2px; }
+.toc a {
+  color: var(--ivory-dim);
+  text-decoration: none;
+  font-size: 13.5px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+}
+.toc a:hover { color: var(--ivory); background: var(--paper); }
+.toc a.sub { font-size: 12.5px; padding-left: 22px; opacity: 0.85; }
+.toc-group { margin-bottom: 4px; }
+
+main { padding: 48px 48px 80px; min-width: 0; }
+@media (max-width: 640px) { main { padding: 32px 20px 60px; } }
+
+/* ---- Hero ---- */
+.hero {
+  padding-bottom: 34px;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--line);
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass-bright);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.eyebrow-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--brass-bright);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brass) 20%, transparent);
+}
+.hero h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(32px, 5vw, 46px);
+  margin: 0 0 12px;
+  text-wrap: balance;
+  letter-spacing: 0.002em;
+}
+.hero p {
+  max-width: 62ch;
+  color: var(--ivory-dim);
+  font-size: 16px;
+  margin: 0;
+}
+.theme-toggle {
+  position: fixed;
+  top: 18px; right: 18px;
+  z-index: 10;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ivory-dim);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--ivory); border-color: var(--brass); }
+
+/* ---- Sections ---- */
+section { margin-bottom: 56px; scroll-margin-top: 20px; }
+section h2 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 26px;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.section-kicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ivory-dim);
+  display: block;
+  margin-bottom: 6px;
+}
+section > p.lede {
+  color: var(--ivory-dim);
+  max-width: 68ch;
+  margin: 0 0 22px;
+}
+h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 18px;
+  margin: 28px 0 10px;
+}
+
+/* ---- Cards / callouts ---- */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px 22px;
+  margin: 16px 0;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: 4px 16px;
+  font-size: 13.5px;
+}
+.field-row .k {
+  font-family: var(--mono);
+  color: var(--brass-bright);
+  font-size: 12.5px;
+  padding: 7px 0;
+}
+.field-row .v { color: var(--ivory-dim); padding: 7px 0; border-bottom: 1px solid var(--line); }
+.field-row .v:last-child { }
+
+.callout {
+  border-left: 3px solid var(--brass);
+  background: var(--paper-raised);
+  border-radius: 0 8px 8px 0;
+  padding: 14px 18px;
+  margin: 18px 0;
+  font-size: 14px;
+}
+.callout .label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brass-bright);
+  display: block;
+  margin-bottom: 5px;
+}
+.callout.warn { border-left-color: var(--error); }
+.callout.warn .label { color: var(--error); }
+.callout.ok { border-left-color: var(--success); }
+.callout.ok .label { color: var(--success); }
+
+/* ---- Ordered step list (real sequences only) ---- */
+ol.steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 20px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+ol.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+ol.steps li::before {
+  content: counter(step);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--brass-bright);
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+ol.steps .step-body strong { color: var(--ivory); }
+ol.steps .step-body p { margin: 4px 0 0; color: var(--ivory-dim); font-size: 13.5px; }
+
+/* ---- Plain bullet list ---- */
+ul.plain { margin: 12px 0; padding-left: 20px; color: var(--ivory-dim); font-size: 14.5px; }
+ul.plain li { margin-bottom: 8px; }
+ul.plain strong { color: var(--ivory); }
+
+/* ---- Tabs illustration strip ---- */
+.tab-illustration {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.tab-illustration span {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  color: var(--ivory-dim);
+}
+.tab-illustration span.current {
+  color: var(--brass-bright);
+  border-color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 10%, transparent);
+}
+
+/* ---- Status pill demo ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.pill.ok { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+.pill.warn { background: color-mix(in srgb, var(--error) 20%, transparent); color: var(--error); }
+.pill.off { background: color-mix(in srgb, var(--ivory-dim) 18%, transparent); color: var(--ivory-dim); }
+
+table.faq { width: 100%; border-collapse: collapse; margin: 14px 0; }
+table.faq th { display: none; }
+table.faq td { padding: 12px 0; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 14px; }
+table.faq td:first-child { width: 32%; color: var(--ivory); font-weight: 600; padding-right: 18px; }
+table.faq td:last-child { color: var(--ivory-dim); }
+
+footer {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  color: var(--ivory-dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle color theme">Ink / Paper</button>
+
+<div class="shell">
+  <aside class="toc">
+    <p class="toc-title">DailyBot GUI</p>
+    <nav>
+      <a href="#install">Getting it installed</a>
+      <a href="#settings">Settings tab</a>
+      <a href="#entries">Daily Entries tab</a>
+      <a href="#run">Run &amp; Reports tab</a>
+      <a href="#scheduler">Scheduler tab</a>
+      <a href="#session">Sessions &amp; the login code</a>
+      <a href="#update">Software updates</a>
+      <a href="#other-pc">Setting up another rep</a>
+      <a href="#troubleshoot">If something goes wrong</a>
+      <a href="#faq">Quick answers</a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <p class="eyebrow"><span class="eyebrow-dot"></span> User Guide</p>
+      <h1>Getting the most out of DailyBot GUI</h1>
+      <p>A walkthrough of every tab, what each setting actually does, and what to do when the portal asks for a login code. Written for the control panel exactly as it runs today.</p>
+    </div>
+
+    <section id="install">
+      <span class="section-kicker">Part one</span>
+      <h2>Getting it installed</h2>
+      <p class="lede">One-time setup on a new computer. After this, day-to-day use is just double-clicking one file.</p>
+
+      <ol class="steps">
+        <li>
+          <div class="step-body">
+            <strong>Download and extract the folder.</strong>
+            <p>Get the ZIP from GitHub (the green <strong>Code</strong> button → <strong>Download ZIP</strong>), then extract it somewhere permanent — Documents or Desktop, not Downloads, so it doesn't get cleaned up later.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Double-click <code>Setup.bat</code>.</strong>
+            <p>It'll ask to run as administrator — allow it. It checks for Node.js and installs it automatically if missing (first via winget, falling back to a direct download if winget can't reach its source — either way, no action needed from you), installs the app's dependencies, downloads the browser engine it automates with, and asks for your portal login (or you can skip that and add it later from the Settings tab).</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Wait for "Setup complete!"</strong>
+            <p>This step can take several minutes the first time — it's downloading real components (Node.js itself, the browser engine), not just copying files. A slow or unstable connection will just make it take longer, not fail.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Double-click <code>Run DailyBot GUI.bat</code>.</strong>
+            <p>A terminal window opens and starts the local server, then your browser opens automatically to the control panel at <code>http://localhost:4287</code>.</p>
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout">
+        <span class="label">Keep this open</span>
+        Leave that terminal window running in the background while you use DailyBot. Closing it stops everything. Closing just the browser tab is fine — reopen <code>http://localhost:4287</code> any time the terminal is still running.
+      </div>
+    </section>
+
+    <section id="settings">
+      <div class="tab-illustration">
+        <span>Settings</span><span>Daily Entries</span><span>Run &amp; Reports</span><span>Scheduler</span>
+      </div>
+      <h2>Settings tab</h2>
+      <p class="lede">Your login and every timing/behavior knob DailyBot uses. Saved only to this computer's local <code>.env</code> file — nothing here is sent anywhere except the portal itself.</p>
+
+      <h3>Login</h3>
+      <ul class="plain">
+        <li><strong>Email / Password</strong> — the same credentials you'd use to sign into the portal by hand. A <span class="pill ok">✓ Saved</span> badge next to Password confirms one's on file — the field itself always clears after saving, so this badge is the only way to tell "saved" from "empty" at a glance. Type a new password to replace it, or leave it blank to keep the one you already saved.</li>
+      </ul>
+
+      <h3>Advanced → Location</h3>
+      <ul class="plain">
+        <li>Only needed if the portal asks for a location when logging a visit. Set your usual default here — <strong>Latitude</strong> and <strong>Longitude</strong>, side by side. Drop a pin on Google Maps, right-click it, and the numbers shown are ready to paste in.</li>
+        <li>Any single entry can override this — see <a href="#entries">Daily Entries</a> below.</li>
+      </ul>
+
+      <h3>Advanced (.env) Settings</h3>
+      <p>The defaults work well for almost everyone. Here's what each one actually controls:</p>
+      <div class="card">
+        <div class="field-row">
+          <span class="k">Headless</span><span class="v">False shows the browser window while it runs — keep it this way until you're confident logins are reliably reusing a saved session. True hides the window, but if a login code is ever needed, there'd be nothing on screen to type it into.</span>
+          <span class="k">Slow motion</span><span class="v">Adds a small delay before every click/type, useful only if you want to visually follow along with what it's doing.</span>
+          <span class="k">Page navigation timeout</span><span class="v">How long to wait for a page to load. Floored at 20 seconds no matter what's entered.</span>
+          <span class="k">Action timeout</span><span class="v">How long to wait for a click target or field to appear before giving up on that step.</span>
+          <span class="k">Login-code wait</span><span class="v">How long the browser waits for a human to type in an OTP. Floored at 45 seconds — enough time to check a phone.</span>
+          <span class="k">Retry attempts / delay</span><span class="v">How many times, and how long to wait between tries, if a step fails and can safely be redone.</span>
+          <span class="k">Days before too old</span><span class="v">Matches the portal's own edit-window rule (2 days, by default). Only change this if that rule itself changes on the portal.</span>
+          <span class="k">Log detail level</span><span class="v">How much detail gets written to the logs/ folder. Needs a restart of DailyBot GUI to take effect — everything else here applies on the very next run.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="entries">
+      <div class="tab-illustration">
+        <span>Settings</span><span class="current">Daily Entries</span><span>Run &amp; Reports</span><span>Scheduler</span>
+      </div>
+      <h2>Daily Entries tab</h2>
+      <p class="lede">Where you tell DailyBot what to submit — no more opening the Excel file by hand.</p>
+
+      <h3>Add an entry</h3>
+      <p>Fill in date, partner (the only required field), calls, meetings, blockers, tomorrow's priorities, and notes. For <strong>Location for this visit</strong>, there are three choices:</p>
+      <ul class="plain">
+        <li><strong>Use the default location</strong> — whatever's set in Settings. This is right for most entries.</li>
+        <li><strong>Custom coordinates</strong> — type a one-off latitude/longitude for just this visit.</li>
+        <li><strong>A saved location</strong> — pick a place you've saved before (see below) instead of retyping coordinates every time.</li>
+      </ul>
+
+      <h3>Saved Locations</h3>
+      <p>Save a place once — a name plus coordinates — and it shows up in the dropdown above from then on. Useful for partners you visit repeatedly.</p>
+
+      <h3>Pending entries</h3>
+      <p>Shows exactly what the next run will submit. A row disappears automatically the moment it's confirmed submitted — nothing is ever double-submitted, even if a run crashes partway through and gets retried later.</p>
+
+      <div class="callout">
+        <span class="label">About future-dated entries</span>
+        The portal itself won't accept a log for a date that hasn't arrived yet — DailyBot detects this automatically and skips those rows for now rather than wasting a run on something guaranteed to fail. They're not lost: the row stays in <strong>Pending entries</strong> and gets picked up on its own once that date actually arrives.
+      </div>
+    </section>
+
+    <section id="run">
+      <div class="tab-illustration">
+        <span>Settings</span><span>Daily Entries</span><span class="current">Run &amp; Reports</span><span>Scheduler</span>
+      </div>
+      <h2>Run &amp; Reports tab</h2>
+      <p class="lede">Where you actually submit today's entries, and look back at what happened on past runs.</p>
+
+      <ul class="plain">
+        <li><strong>Run Now</strong> — opens a real browser window and does the actual submitting. Most days, nothing needs your attention.</li>
+        <li><strong>Progress</strong> — a live log of exactly what's happening, streamed in as it runs.</li>
+        <li><strong>Reports</strong> — every past run leaves a report here you can open — a full summary of what succeeded and what didn't.</li>
+        <li>A status line above Progress shows whether you're currently signed in and, if so, until when — see the next section.</li>
+      </ul>
+
+      <div class="callout warn">
+        <span class="label">If a login code appears</span>
+        Type it into <em>that</em> browser window, not the control panel page. DailyBot can't read or generate the code itself — it's sent to your phone or email, and it just waits for a human to enter it.
+      </div>
+    </section>
+
+    <section id="scheduler">
+      <div class="tab-illustration">
+        <span>Settings</span><span>Daily Entries</span><span>Run &amp; Reports</span><span class="current">Scheduler</span>
+      </div>
+      <h2>Scheduler tab</h2>
+      <p class="lede">Runs DailyBot by itself at a set time, instead of clicking Run Now every day.</p>
+      <ul class="plain">
+        <li>Turn it <strong>On</strong>, pick a <strong>time of day</strong> and which <strong>days</strong> (defaults to 08:00, Monday–Saturday). An <strong>Advanced</strong> raw cron field underneath covers anything the simple picker can't express.</li>
+        <li>The status line tells you the next scheduled run in plain terms, e.g. <em>"Scheduler is on — next run: Mon 8:00 AM."</em></li>
+      </ul>
+      <div class="callout">
+        <span class="label">Two real limits</span>
+        This computer needs to be on (not asleep) and DailyBot GUI needs to still be running at the scheduled time. And if a login code happens to be needed that day, someone still needs to be there to type it in — same as running it manually.
+      </div>
+    </section>
+
+    <section id="session">
+      <h2>Sessions &amp; the login code</h2>
+      <p class="lede">Why you're not asked for a code every single day, and how to see exactly when that changes.</p>
+      <p>After a successful login, DailyBot saves the session it was given. Every run checks that saved session first — if it's still good, it skips the login form entirely and no code is needed. You're only asked again once the portal's own session actually runs out, which is decided by the portal, not by DailyBot.</p>
+      <p>The <strong>Run &amp; Reports</strong> tab shows this plainly, reading the real expiry the portal set:</p>
+      <div class="card" style="display:flex; flex-direction:column; gap:10px;">
+        <div><span class="pill ok">●</span>&nbsp; Signed in — session good until Tue, Aug 4 2026, 8:15 AM</div>
+        <div><span class="pill warn">●</span>&nbsp; Session expired Fri, Jul 31 2026 — the next run will need the login code</div>
+        <div><span class="pill off">●</span>&nbsp; No saved session yet — the next run will need the login code</div>
+      </div>
+      <p>Keep <strong>Headless</strong> off for scheduled runs specifically — on the days a code genuinely is needed, that just means someone glances at the screen and types 6 digits, instead of a run silently failing because nobody could see the prompt.</p>
+    </section>
+
+    <section id="update">
+      <h2>Software updates</h2>
+      <p class="lede">A "Software Update" card lives at the bottom of the Settings tab.</p>
+      <ul class="plain">
+        <li>Shows the version currently installed.</li>
+        <li><strong>Check for Update</strong> fetches the latest version, keeping your login, entries, and saved locations exactly as they are — nothing personal is ever touched.</li>
+        <li>Progress streams live in a log box right there on the page, ending in one of a few outcomes: updated in place (just restart <code>Run DailyBot GUI.bat</code>), a fresh copy placed in a sibling folder for you to switch to, or — on a computer without Node.js yet — the files being ready plus instructions to run <code>Setup.bat</code> once more.</li>
+      </ul>
+      <div class="callout warn">
+        <span class="label">If it blocks</span>
+        If any of the app's own files have been hand-edited on this computer, the update stops and tells you so rather than overwriting your changes silently. That's a safeguard, not a bug — undo the edit (or ask whoever maintains this for you) and try again.
+      </div>
+      <p>There's also a <code>Update.bat</code> file in the folder that does the same thing from outside the browser, useful if the control panel itself won't start for some reason.</p>
+    </section>
+
+    <section id="other-pc">
+      <h2>Setting up another rep on their own computer</h2>
+      <p class="lede">Each install is independent — its own login, its own entries, its own reports.</p>
+      <p>Copy the whole <code>DailyBot-GUI</code> folder to their computer and run <code>Setup.bat</code> there — it asks for <em>their</em> login, separately. Don't copy these folders between computers, since they're specific to one person and one machine:</p>
+      <div class="field-row" style="margin-top:8px;">
+        <span class="k">.env</span><span class="v">contains a saved password — each person enters their own via Setup.bat or the Settings tab.</span>
+        <span class="k">sessions/</span><span class="v">one person's saved login — reusing it elsewhere won't work and isn't meant to.</span>
+        <span class="k">node_modules/</span><span class="v">reinstalled fresh on each machine by Setup.bat — no need to copy it at all.</span>
+      </div>
+    </section>
+
+    <section id="troubleshoot">
+      <h2>If something goes wrong</h2>
+      <ul class="plain">
+        <li>Check the <strong>Progress</strong> panel on the Run tab first — the error message usually says exactly what happened.</li>
+        <li>Open the newest entry in <strong>Reports</strong> for a full summary of what succeeded and what didn't.</li>
+        <li>The <code>screenshots/</code> folder has a picture automatically saved at the exact moment anything failed.</li>
+        <li>The <code>logs/</code> folder has the full detailed history if you need to dig deeper than the report shows.</li>
+      </ul>
+    </section>
+
+    <section id="faq">
+      <h2>Quick answers</h2>
+      <table class="faq">
+        <tr><td>Do I need to enter the login code every day?</td><td>No — only when the saved session actually expires. See <a href="#session">Sessions &amp; the login code</a>.</td></tr>
+        <tr><td>Can I close the browser tab?</td><td>Yes. Just don't close the terminal window from <code>Run DailyBot GUI.bat</code> — that's what actually stops DailyBot.</td></tr>
+        <tr><td>What if I add an entry for tomorrow by mistake?</td><td>Nothing to fix — DailyBot detects future-dated entries and skips them automatically until that date arrives.</td></tr>
+        <tr><td>How do I move this to a new laptop?</td><td>Copy the whole folder over, run <code>Setup.bat</code>, then sign in fresh. See <a href="#other-pc">Setting up another rep</a>.</td></tr>
+        <tr><td>Where do I get updates?</td><td>The <strong>Check for Update</strong> button in Settings, or double-click <code>Update.bat</code>.</td></tr>
+        <tr><td>The Scheduler is on but nothing happened.</td><td>Check the computer was on and DailyBot GUI was actually running at that time — both are required.</td></tr>
+      </table>
+    </section>
+
+    <footer>
+      DailyBot GUI — internal tool, Mitsumi Distribution.
+    </footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var toggle = document.getElementById("themeToggle");
+  var stored = null;
+  try { stored = localStorage.getItem("dailybot-theme"); } catch (e) {}
+  if (stored) root.setAttribute("data-theme", stored);
+
+  function current() {
+    if (root.getAttribute("data-theme")) return root.getAttribute("data-theme");
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  toggle.addEventListener("click", function () {
+    var next = current() === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("dailybot-theme", next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

@@ -18,6 +18,12 @@ underlying automation (`core/`), plus a local web GUI (`server/` +
 3. Double-click **`Run DailyBot GUI.bat`**. Your browser opens to the
    control panel automatically at `http://localhost:4287`.
 
+## User guide
+
+For a full walkthrough with screenshots-style callouts -- every tab
+explained, sessions and the login code, updating, troubleshooting --
+open [`docs/user-guide.html`](docs/user-guide.html) in any browser.
+
 ## Using it day to day
 
 - **Settings tab** -- your login email/password for the portal. Saved
