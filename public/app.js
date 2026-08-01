@@ -40,7 +40,10 @@
         loadEntries();
         loadLocations();
       }
-      if (btn.dataset.tab === "run") loadReports();
+      if (btn.dataset.tab === "run") {
+        loadReports();
+        loadSession();
+      }
       if (btn.dataset.tab === "scheduler") loadScheduler();
     });
   });
@@ -340,6 +343,7 @@
       const payload = JSON.parse(e.data);
       setRunning(false);
       loadReports();
+      loadSession();
     });
   }
 
@@ -356,6 +360,29 @@
     }
     setRunning(true);
   });
+
+  async function loadSession() {
+    const el = document.getElementById("session-status");
+    try {
+      const res = await fetch("/api/session");
+      const data = await res.json();
+      if (!data.exists) {
+        el.textContent = "No saved session yet -- the next run will need the login code.";
+        el.className = "hint";
+      } else if (!data.expiresAt) {
+        el.textContent = "Signed in (session has no fixed expiry to report).";
+        el.className = "hint";
+      } else if (data.expired) {
+        el.textContent = `Session expired ${new Date(data.expiresAt).toLocaleString()} -- the next run will need the login code.`;
+        el.className = "hint warning";
+      } else {
+        el.textContent = `Signed in -- session good until ${new Date(data.expiresAt).toLocaleString()}.`;
+        el.className = "hint";
+      }
+    } catch (err) {
+      el.textContent = "";
+    }
+  }
 
   async function loadReports() {
     const res = await fetch("/api/reports");
@@ -551,5 +578,6 @@
   loadLocations();
   loadScheduler();
   loadVersion();
+  loadSession();
   connectStream();
 })();

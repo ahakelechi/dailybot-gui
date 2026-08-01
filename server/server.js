@@ -455,6 +455,11 @@ async function handlePostScheduler(req, res) {
   sendJson(res, 200, schedulerStatusPayload());
 }
 
+async function handleGetSession(req, res) {
+  const { getSessionExpiry } = require("../core/utils/sessionInfo");
+  sendJson(res, 200, getSessionExpiry());
+}
+
 async function handleGetReports(req, res) {
   const config = require("../core/config");
   const dir = config.paths.reports;
@@ -623,6 +628,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && pathname === "/api/scheduler") return await handleGetScheduler(req, res);
     if (req.method === "POST" && pathname === "/api/scheduler") return await handlePostScheduler(req, res);
+
+    if (req.method === "GET" && pathname === "/api/session") return await handleGetSession(req, res);
 
     if (req.method === "GET" && pathname === "/api/reports") return await handleGetReports(req, res);
 
