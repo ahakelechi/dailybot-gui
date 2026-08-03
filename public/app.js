@@ -322,12 +322,24 @@
   const logOutput = document.getElementById("log-output");
   const runBtn = document.getElementById("run-btn");
   const runIndicator = document.getElementById("run-indicator");
+  const attentionBanner = document.getElementById("attention-banner");
+  const attentionList = document.getElementById("attention-list");
   let eventSource = null;
 
   function appendLog(line) {
     if (logOutput.textContent === "Nothing running yet.") logOutput.textContent = "";
     logOutput.textContent += line + "\n";
     logOutput.scrollTop = logOutput.scrollHeight;
+  }
+
+  function renderAttention(payload) {
+    if (!payload || !payload.issues || payload.issues.length === 0) {
+      attentionBanner.style.display = "none";
+      attentionList.innerHTML = "";
+      return;
+    }
+    attentionList.innerHTML = payload.issues.map((issue) => `<li>${escapeHtml(issue.message)}</li>`).join("");
+    attentionBanner.style.display = "block";
   }
 
   function connectStream() {
@@ -339,6 +351,7 @@
       setRunning(running);
     });
     eventSource.addEventListener("log", (e) => appendLog(JSON.parse(e.data)));
+    eventSource.addEventListener("attention", (e) => renderAttention(e.data ? JSON.parse(e.data) : null));
     eventSource.addEventListener("done", (e) => {
       const payload = JSON.parse(e.data);
       setRunning(false);

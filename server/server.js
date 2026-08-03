@@ -35,6 +35,18 @@ let logBuffer = [];
 const sseClients = new Set();
 let lastReportUrl = null;
 
+// Set only when a SCHEDULED run gets skipped by the preflight check
+// (core/utils/preflight.js) -- something a human needs to notice and act
+// on, since nobody was watching when it happened. Cleared the next time
+// any run actually completes successfully.
+let needsAttention = null;
+
+function broadcastAttention(payload) {
+  for (const res of sseClients) {
+    res.write(`event: attention\ndata: ${JSON.stringify(payload)}\n\n`);
+  }
+}
+
 // ---------------------------------------------------------------------
 // Update state. Shares the same "only one automation thing at a time"
 // rule as isRunning -- an update can rewrite core/ files out from under
@@ -337,6 +349,19 @@ function triggerRun(triggeredBy) {
     return { started: false };
   }
 
+  if (triggeredBy === "scheduled") {
+    const { preflightForScheduledRun } = require("../core/utils/preflight");
+    const issues = preflightForScheduledRun();
+    if (issues.length > 0) {
+      needsAttention = { issues, at: new Date().toISOString() };
+      logBuffer = [];
+      broadcastLog("Scheduled run skipped -- needs attention:");
+      for (const issue of issues) broadcastLog(`  - ${issue.message}`);
+      broadcastAttention(needsAttention);
+      return { started: false, skipped: true };
+    }
+  }
+
   isRunning = true;
   logBuffer = [];
   lastReportUrl = null;
@@ -347,6 +372,8 @@ function triggerRun(triggeredBy) {
   run({ onLog: broadcastLog })
     .then(({ htmlPath }) => {
       lastReportUrl = `/reports/${path.basename(htmlPath)}`;
+      needsAttention = null;
+      broadcastAttention(null);
       broadcastDone({ ok: true, reportUrl: lastReportUrl });
     })
     .catch((err) => {
@@ -379,13 +406,16 @@ function handleGetRunStream(req, res) {
   for (const line of logBuffer) {
     res.write(`event: log\ndata: ${JSON.stringify(line)}\n\n`);
   }
+  if (needsAttention) {
+    res.write(`event: attention\ndata: ${JSON.stringify(needsAttention)}\n\n`);
+  }
 
   sseClients.add(res);
   req.on("close", () => sseClients.delete(res));
 }
 
 function handleGetRunStatus(req, res) {
-  sendJson(res, 200, { running: isRunning, lastReportUrl });
+  sendJson(res, 200, { running: isRunning, lastReportUrl, needsAttention });
 }
 
 function schedulerStatusPayload() {
