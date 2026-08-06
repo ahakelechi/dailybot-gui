@@ -80,28 +80,31 @@ async function submitEntry(page, entry, options = {}) {
       const enableLocation = form.enableLocationButton(page);
       const locationPromptShown = await waitVisible(enableLocation, 3000);
       if (locationPromptShown) {
-        logger.info('Location prompt detected -- clicking "Enable location"...');
+        logger.info("Location control found -- taking a fresh device-location fix...");
         await enableLocation.click();
-        // The button's own accessible name changes to "Locating..." while
-        // resolving -- waiting for "Enable location" to become hidden is
-        // NOT proof location finished, only that its label changed. Wait
-        // out the "Locating..." state too (if it appears) before treating
-        // location as handled.
-        await enableLocation
-          .waitFor({ state: "hidden", timeout: config.timeouts.action })
-          .catch(() => {
-            logger.warning('"Enable location" button did not disappear after clicking -- continuing anyway.');
-          });
 
+        // Which signal means "done" depends on which variant of the
+        // control the page rendered. The old "Enable location" button
+        // disappears once a fix exists; the current "Refresh device
+        // location" button is permanent (the site asks for a fresh fix on
+        // every save), so waiting for it to hide would just burn the full
+        // action timeout on every entry. Waiting out the "Locating..."
+        // state is the signal that works for both -- the button going
+        // away is only used as a fallback when no locating state appears.
         const locating = form.locatingIndicator(page);
-        const stillLocating = await waitVisible(locating, 1000);
-        if (stillLocating) {
+        const startedLocating = await waitVisible(locating, 3000);
+
+        if (startedLocating) {
           logger.info('Waiting for "Locating..." to resolve...');
           await locating.waitFor({ state: "hidden", timeout: config.timeouts.action }).catch(() => {
             throw new Error(
               'Location never resolved -- "Locating..." was still showing after ' +
                 `${config.timeouts.action / 1000}s. The site's Location field will block saving until this finishes.`
             );
+          });
+        } else {
+          await enableLocation.waitFor({ state: "hidden", timeout: 3000 }).catch(() => {
+            logger.info("Location control is still showing -- the fix resolved too fast to observe, continuing.");
           });
         }
       }

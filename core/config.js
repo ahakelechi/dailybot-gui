@@ -27,13 +27,23 @@ const config = {
   // ---------------------------------------------------------------------
   baseURL: BASE_URL,
   urls: {
-    // The site is a single-page app: there is no separate /login or
-    // /dashboard route. Logged-out, the root shows a "Sign In" link;
-    // logged-in, it shows the dashboard ("Log My Day") directly. So both
-    // "URLs" are just the root -- kept as two config keys (rather than one)
-    // in case that ever changes.
+    // The root URL is the signed-out landing page ("Sign In" link), and it
+    // STAYS the signed-out page even when a valid session cookie is
+    // present -- the site redirects it to /login either way. So the root
+    // is only ever the right place to start a login from.
     login: process.env.LOGIN_URL || BASE_URL,
-    dashboard: process.env.DASHBOARD_URL || BASE_URL,
+    // CONFIRMED live: the signed-in app lives under /admin. Pointing this
+    // at the root instead made every session check report "logged out"
+    // (the root always renders the login page), which threw away a
+    // perfectly valid saved session and forced a fresh OTP login on every
+    // single run.
+    dashboard: process.env.DASHBOARD_URL || `${BASE_URL}/admin`,
+    // The daily-log history page (calendar + past entries).
+    dailyLog: `${BASE_URL}/admin/daily-log`,
+    // Clicking a day in that calendar navigates to a per-date URL, so a
+    // specific day's form can be opened directly instead of clicking
+    // through the sidebar and calendar every time.
+    dailyLogForDate: (isoDate) => `${BASE_URL}/admin/daily-log/${isoDate}`,
   },
 
   // ---------------------------------------------------------------------
@@ -89,15 +99,16 @@ const config = {
       pageMarker: (page) => page.getByTestId("partner-combobox-trigger"),
     },
     form: {
-      // Some daily-log forms show an "Enable location" prompt/button that
-      // blocks saving until clicked -- observed specifically on
-      // backfilled (non-today) dates. Granting geolocation permission at
-      // the browser-context level (see browser.js) should mean this
-      // button never even appears, but forms.js still checks/clicks it as
-      // a belt-and-suspenders fallback in case the site requires an
-      // explicit click regardless of permission state.
+      // The form's location control. It has had two labels: the original
+      // "Enable location" (shown when no fix had been taken yet), and the
+      // current "Refresh device location" (data-testid=capture-location-btn),
+      // which is always present because the site now takes a fix
+      // automatically and asks for a fresh one on every save. Matching
+      // either keeps this working whichever the page renders.
       enableLocationButton: (page) =>
-        page.getByRole("button", { name: /enable location/i }),
+        page
+          .getByTestId("capture-location-btn")
+          .or(page.getByRole("button", { name: /enable location/i })),
       // Seen in a real failed run: after clicking "Enable location", the
       // button's own accessible name changes to "Locating..." while the
       // coordinates/address are being resolved -- a DIFFERENT name than

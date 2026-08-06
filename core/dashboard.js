@@ -65,8 +65,35 @@ async function navigateToMonth(page, targetDate) {
  * @returns {Promise<import('playwright').Page>}
  */
 async function openDailyLog(page, targetDate = new Date()) {
+  const isoDate = formatDateOnly(targetDate);
+
   return withRetry(
     async (attempt) => {
+      // The site gives each day its own URL (/admin/daily-log/YYYY-MM-DD),
+      // which is exactly where clicking a calendar cell lands. Going
+      // straight there skips the sidebar click, the month navigation and
+      // the day-cell click -- three separate things that can each go
+      // wrong -- so it's tried first. The click-through path below stays
+      // as the fallback for anything the direct URL doesn't handle.
+      try {
+        await page.goto(config.urls.dailyLogForDate(isoDate), { waitUntil: "networkidle" });
+        const formOpen = await waitVisible(
+          config.selectors.dashboard.pageMarker(page),
+          config.timeouts.action
+        );
+        if (formOpen) {
+          logger.info(`✅ Daily Log form is open for ${isoDate} (direct URL).`);
+          return page;
+        }
+        logger.info(
+          `Direct URL for ${isoDate} did not open the form -- falling back to clicking through the calendar.`
+        );
+      } catch (err) {
+        logger.warning(
+          `Direct URL for ${isoDate} failed (${err.message}) -- falling back to clicking through the calendar.`
+        );
+      }
+
       const dailyLogLink = config.selectors.dashboard.dailyLogLink(page);
 
       // Right after a successful login (or after finishing a previous
@@ -103,7 +130,6 @@ async function openDailyLog(page, targetDate = new Date()) {
 
       await navigateToMonth(page, targetDate);
 
-      const isoDate = formatDateOnly(targetDate);
       logger.info(`Selecting ${targetDate.toDateString()} (${isoDate}) in the date picker...`);
       await config.selectors.dashboard.dayButton(page, isoDate).click();
 
