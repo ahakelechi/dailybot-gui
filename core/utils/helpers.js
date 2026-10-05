@@ -73,6 +73,28 @@ async function waitVisible(locator, timeout) {
 }
 
 /**
+ * Navigate and give the page a chance to settle, without ever failing just
+ * because it never goes quiet.
+ *
+ * This used to be `page.goto(url, { waitUntil: "networkidle" })`, which
+ * THROWS if the network doesn't go idle within the navigation timeout. The
+ * site's pages now keep requests flowing in the background (an embedded
+ * map, prefetching every sidebar link), so "idle" never arrives -- every
+ * session check then failed after 30s and forced a fresh OTP login on every
+ * run, and every form open burned 30s before falling back. Waiting for the
+ * DOM, then giving the network a short best-effort window, keeps the
+ * original intent (let the SPA decide what to render) without that failure.
+ *
+ * @param {import('playwright').Page} page
+ * @param {string} url
+ * @param {number} [settleMs] - how long to wait for network idle before moving on.
+ */
+async function gotoSettled(page, url, settleMs = 8000) {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle", { timeout: settleMs }).catch(() => {});
+}
+
+/**
  * Ensure a directory exists, creating it (and parents) if necessary.
  * @param {string} dirPath
  */
@@ -109,5 +131,6 @@ module.exports = {
   random,
   ensureDir,
   waitVisible,
+  gotoSettled,
   sanitizeForFilename,
 };

@@ -156,11 +156,13 @@ async function submitEntry(page, entry, options = {}) {
       // still completes its click-cycle normally. Capturing the actual
       // save request/response is the only way to catch that.
       let dump;
+      let saveClicked = false;
       try {
         dump = await captureDuring(
           page,
           async () => {
             await saveButton.click();
+            saveClicked = true;
             // validateSubmission() waits for the save to settle (button
             // re-enabled or form closed) before returning, so the
             // screenshot below is taken AFTER it -- capturing the real
@@ -169,6 +171,32 @@ async function submitEntry(page, entry, options = {}) {
           },
           `submit-${dateForFilename}-${partnerForFilename}`
         );
+
+        // captureDuring() swallows whatever its action throws (it always
+        // hands back its dump), so a Save click that failed -- e.g. a popup
+        // covering the button until the click timed out -- looked exactly
+        // like a successful save. Nothing was sent in that case, so failing
+        // here (and retrying) is safe, unlike failing on a later timeout.
+        if (!saveClicked) {
+          throw new Error(
+            "The Save button could not be clicked -- the entry was NOT saved. " +
+              "Check the entry-failed screenshot for anything covering the form."
+          );
+        }
+
+        // A save request that died on the network (dropped connection) has
+        // no response to inspect below, so it used to fall straight through
+        // to "success" -- the page said "your entry was NOT saved" while the
+        // bot logged a submission and removed the row from the data file.
+        const failedSave = dump.failedRequests.find(
+          (r) => r.method !== "GET" && r.url.includes("/api/daily-log")
+        );
+        if (failedSave) {
+          throw new Error(
+            `The save request never reached the server (${failedSave.failure}) -- the entry was NOT saved. ` +
+              "Check the internet connection."
+          );
+        }
 
         const saveRequest = dump.apiResponses.find(
           (r) => r.method !== "GET" && r.url.includes("/api/daily-log")
@@ -197,7 +225,16 @@ async function submitEntry(page, entry, options = {}) {
       );
       return { partner, success: true, rowNumber: entry.__rowNumber };
     },
-    { label: `submit entry (${partner})` }
+    {
+      label: `submit entry (${partner})`,
+      // Until now only a few specific failures left a screenshot, so a
+      // timeout while filling a field (the site changed a field's type, a
+      // popup covered the form...) had to be diagnosed from the error text
+      // alone. Every failed attempt now leaves a picture of the page.
+      onAttemptFailed: async () => {
+        await takeScreenshot(page, { name: `entry-failed-${partnerForFilename}` });
+      },
+    }
   );
 }
 

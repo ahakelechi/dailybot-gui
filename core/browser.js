@@ -11,6 +11,7 @@ const { chromium } = require("playwright");
 const config = require("./config");
 const logger = require("./utils/logger");
 const { ensureDir } = require("./utils/helpers");
+const { installOverlayHandlers } = require("./utils/overlays");
 
 ensureDir(config.paths.sessions);
 
@@ -63,6 +64,7 @@ async function launchWithRealProfile() {
   // (from the profile's own startup behavior) -- reuse it instead of
   // opening a second one.
   const page = context.pages()[0] || (await context.newPage());
+  await installOverlayHandlers(page);
 
   // A persistent context IS the browser as far as Playwright's API is
   // concerned (no separate top-level Browser object) -- returning it as
@@ -110,6 +112,7 @@ async function launchFreshProfile() {
   context.setDefaultTimeout(config.timeouts.action);
 
   const page = await context.newPage();
+  await installOverlayHandlers(page);
 
   return { browser, context, page };
 }

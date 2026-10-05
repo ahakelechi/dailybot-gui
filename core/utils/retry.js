@@ -17,6 +17,10 @@ const defaultConfig = require("../config").retry;
  * @param {number} [options.attempts] - total attempts before giving up.
  * @param {number} [options.delayMs] - delay between attempts.
  * @param {string} [options.label] - human-readable name for log messages.
+ * @param {(err: Error, attempt: number) => Promise<void>} [options.onAttemptFailed] -
+ *   awaited after every failed attempt, before the retry delay. Used to grab a
+ *   screenshot of whatever the page looked like at the moment of failure, so a
+ *   timeout never has to be diagnosed from the error text alone.
  * @returns {Promise<*>} the return value of fn() once it succeeds.
  */
 async function withRetry(fn, options = {}) {
@@ -34,6 +38,16 @@ async function withRetry(fn, options = {}) {
       logger.warning(
         `${label} failed on attempt ${attempt}/${attempts}: ${err.message}`
       );
+
+      if (options.onAttemptFailed) {
+        try {
+          await options.onAttemptFailed(err, attempt);
+        } catch (hookErr) {
+          // A diagnostics hook must never turn a retryable failure into a
+          // different one (e.g. the page is already gone).
+          logger.warning(`${label}: failure hook errored: ${hookErr.message}`);
+        }
+      }
 
       if (attempt < attempts) {
         await sleep(delayMs);

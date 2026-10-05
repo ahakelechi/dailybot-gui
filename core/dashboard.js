@@ -9,8 +9,9 @@ const config = require("./config");
 const logger = require("./utils/logger");
 const { takeScreenshot } = require("./utils/screenshots");
 const { withRetry } = require("./utils/retry");
-const { waitVisible, sleep, formatDateOnly } = require("./utils/helpers");
+const { waitVisible, sleep, formatDateOnly, gotoSettled } = require("./utils/helpers");
 const { captureDuring } = require("./utils/networkCapture");
+const { dismissOverlays } = require("./utils/overlays");
 
 /**
  * Click prev/next month arrows in the date picker until the target
@@ -76,12 +77,15 @@ async function openDailyLog(page, targetDate = new Date()) {
       // wrong -- so it's tried first. The click-through path below stays
       // as the fallback for anything the direct URL doesn't handle.
       try {
-        await page.goto(config.urls.dailyLogForDate(isoDate), { waitUntil: "networkidle" });
+        await gotoSettled(page, config.urls.dailyLogForDate(isoDate));
         const formOpen = await waitVisible(
           config.selectors.dashboard.pageMarker(page),
           config.timeouts.action
         );
         if (formOpen) {
+          // A "Changelog" popup can open over the form on load and would
+          // swallow every click below -- close it before touching anything.
+          await dismissOverlays(page);
           logger.info(`✅ Daily Log form is open for ${isoDate} (direct URL).`);
           return page;
         }
@@ -110,12 +114,13 @@ async function openDailyLog(page, targetDate = new Date()) {
           await captureDuring(
             page,
             async () => {
-              // "networkidle" instead of "domcontentloaded": the latter
-              // only means the raw HTML parsed, not that the SPA has
+              // Let the page settle rather than stop at "domcontentloaded",
+              // which only means the raw HTML parsed, not that the SPA has
               // finished deciding (via its own async auth check) whether
               // to show the dashboard or redirect to sign-in.
-              await page.goto(config.urls.dashboard, { waitUntil: "networkidle" });
+              await gotoSettled(page, config.urls.dashboard);
               await dailyLogLink.waitFor({ state: "visible", timeout: config.timeouts.navigation });
+              await dismissOverlays(page);
             },
             "dashboard-link-not-found"
           );

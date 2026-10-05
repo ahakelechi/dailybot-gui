@@ -26,9 +26,21 @@ const logger = require("./logger");
  */
 async function captureDuring(page, action, label) {
   const responses = [];
+  const failedRequests = [];
   const consoleMessages = [];
   const pageErrors = [];
   const bodyPromises = [];
+
+  // A request that never got a response at all (connection dropped, network
+  // change...) never fires "response", so without this a failed save was
+  // invisible here -- indistinguishable from "no save request happened".
+  const onRequestFailed = (request) => {
+    failedRequests.push({
+      url: request.url(),
+      method: request.method(),
+      failure: request.failure()?.errorText || "unknown",
+    });
+  };
 
   const onResponse = (response) => {
     const url = response.url();
@@ -65,6 +77,7 @@ async function captureDuring(page, action, label) {
   };
 
   page.on("response", onResponse);
+  page.on("requestfailed", onRequestFailed);
   page.on("console", onConsole);
   page.on("pageerror", onPageError);
 
@@ -72,6 +85,7 @@ async function captureDuring(page, action, label) {
     await action();
   } finally {
     page.off("response", onResponse);
+    page.off("requestfailed", onRequestFailed);
     page.off("console", onConsole);
     page.off("pageerror", onPageError);
 
@@ -97,10 +111,14 @@ async function captureDuring(page, action, label) {
           return null;
         }
       })(),
-      cookies,
+      // Names/expiry only -- never the values. These dumps sit in
+      // screenshots/ and get zipped up and sent around when something
+      // breaks, and the session cookie value is a live login.
+      cookies: cookies.map((c) => ({ ...c, value: "[redacted]" })),
       // Only the calls to the site itself, not every static asset --
       // that's the noise, this is the signal.
       apiResponses: responses.filter((r) => r.url.startsWith(config.baseURL)),
+      failedRequests: failedRequests.filter((r) => r.url.startsWith(config.baseURL)),
       consoleMessages,
       pageErrors,
       htmlSnippet: html ? html.slice(0, 5000) : null,

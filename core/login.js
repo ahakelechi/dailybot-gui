@@ -11,7 +11,7 @@ const { saveSession } = require("./browser");
 const { isLoggedIn } = require("./utils/validation");
 const { takeScreenshot } = require("./utils/screenshots");
 const { withRetry } = require("./utils/retry");
-const { sleep, waitVisible } = require("./utils/helpers");
+const { sleep, waitVisible, gotoSettled } = require("./utils/helpers");
 
 /**
  * Check whether the current page/session is already authenticated,
@@ -29,10 +29,13 @@ async function isSessionValid(page) {
     // a Next.js app like this typically needs an async API round-trip
     // after load). Checking for the logged-in marker too soon after that
     // races against the app still deciding, and reads as "logged out"
-    // even when the saved session is genuinely still good. "networkidle"
-    // plus a generous marker timeout gives the app time to actually
-    // decide before we judge it.
-    await page.goto(config.urls.dashboard, { waitUntil: "networkidle" });
+    // even when the saved session is genuinely still good. A short
+    // settle window plus the generous marker timeout below gives the app
+    // time to actually decide before we judge it. (gotoSettled, not a
+    // hard "networkidle" wait: the site now keeps background requests
+    // going, so "idle" never arrives and that wait always timed out --
+    // reading as "session dead" and forcing a fresh OTP login every run.)
+    await gotoSettled(page, config.urls.dashboard);
   } catch (err) {
     logger.warning(`Could not reach dashboard while checking session: ${err.message}`);
     return false;

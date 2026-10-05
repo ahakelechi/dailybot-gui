@@ -98,6 +98,28 @@ const config = {
       // Presence of the partner combobox = the daily-log form is open.
       pageMarker: (page) => page.getByTestId("partner-combobox-trigger"),
     },
+    overlays: {
+      // CONFIRMED live (Oct 2026): when a new app version ships, the site
+      // opens a full-screen "Changelog" dialog over whatever page is showing
+      // -- a bare <div class="fixed inset-0 z-50 ..."> with no dialog role,
+      // whose only control is an icon button labelled "Close changelog". It
+      // intercepts every click, so the form behind it can't be touched
+      // (Playwright reports 'subtree intercepts pointer events' until the
+      // action times out). The site only remembers a dismissal inside one
+      // browser session, and DailyBot starts a fresh session every run, so
+      // it has to be closed on every run. Matched by what it IS (a
+      // full-screen overlay that talks about a changelog / release notes and
+      // has a close control) rather than its exact label, so a reworded
+      // popup for a future version is still caught.
+      changelog: (page) =>
+        page
+          .locator("div.fixed.inset-0")
+          .filter({ hasText: /changelog|what.?s new|release notes/i })
+          .filter({ has: page.getByRole("button", { name: /close|dismiss|got it/i }) })
+          .first(),
+      changelogClose: (overlay) =>
+        overlay.getByRole("button", { name: /close|dismiss|got it/i }).first(),
+    },
     form: {
       // The form's location control. It has had two labels: the original
       // "Enable location" (shown when no fix had been taken yet), and the
@@ -135,8 +157,19 @@ const config = {
       // adds -- "VMware" alone still matches.
       partnerOption: (page, partnerName) =>
         page.locator('[data-testid^="partner-combobox-option-"]').filter({ hasText: partnerName }),
-      callsInput: (page) => page.getByRole("textbox", { name: "Calls Made" }),
-      meetingsInput: (page) => page.getByRole("textbox", { name: "Meetings Held" }),
+      // CONFIRMED live (Oct 2026): "Calls Made" and "Meetings Held" are now
+      // number inputs with +/- steppers, which the browser exposes as role
+      // "spinbutton", not "textbox" -- looking for a textbox found nothing
+      // and every entry timed out. They were plain text boxes before, so
+      // accept either and the bot keeps working whichever the page renders.
+      callsInput: (page) =>
+        page
+          .getByRole("spinbutton", { name: "Calls Made" })
+          .or(page.getByRole("textbox", { name: "Calls Made" })),
+      meetingsInput: (page) =>
+        page
+          .getByRole("spinbutton", { name: "Meetings Held" })
+          .or(page.getByRole("textbox", { name: "Meetings Held" })),
       blockersInput: (page) => page.getByRole("textbox", { name: "Blockers" }),
       priorityInput: (page) => page.getByRole("textbox", { name: "Top 3 Priorities for Tomorrow" }),
       notesInput: (page) => page.getByRole("textbox", { name: "Meeting Notes" }),
