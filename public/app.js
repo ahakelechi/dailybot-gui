@@ -137,9 +137,22 @@
   // ---------------------------------------------------------------------
   async function loadEntries() {
     const res = await fetch("/api/entries");
-    const entries = await res.json();
+    const payload = await res.json();
     const tbody = document.getElementById("entries-tbody");
+    const errorEl = document.getElementById("entries-error");
     tbody.innerHTML = "";
+
+    // A failed load (e.g. the spreadsheet can't be opened) comes back as
+    // { error: "..." }, not a list. Show that message -- iterating it as a
+    // list used to throw silently and leave the tab looking merely empty.
+    if (!res.ok || !Array.isArray(payload)) {
+      document.getElementById("entries-empty").style.display = "none";
+      errorEl.textContent = `Could not read data/dailyLog.xlsx: ${payload.error || "unknown error"}`;
+      errorEl.style.display = "block";
+      return;
+    }
+    errorEl.style.display = "none";
+    const entries = payload;
 
     document.getElementById("entries-empty").style.display = entries.length ? "none" : "block";
 
@@ -160,8 +173,16 @@
 
     tbody.querySelectorAll(".row-delete-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        await fetch(`/api/entries/${btn.dataset.row}`, { method: "DELETE" });
-        loadEntries();
+        // Rows are identified by their position in the spreadsheet, and every
+        // row below a removed one moves up. A second Remove click before the
+        // list refreshes would therefore delete a different row than the one
+        // it was clicked on -- so lock them all until the list is reloaded.
+        tbody.querySelectorAll(".row-delete-btn").forEach((b) => (b.disabled = true));
+        try {
+          await fetch(`/api/entries/${btn.dataset.row}`, { method: "DELETE" });
+        } finally {
+          await loadEntries();
+        }
       });
     });
   }
@@ -293,6 +314,11 @@
       longitude,
     };
 
+    // The form keeps its values until the save finishes, so a second click
+    // in the meantime would add the very same entry again -- block that.
+    const addBtn = document.getElementById("add-entry-btn");
+    addBtn.disabled = true;
+
     try {
       const res = await fetch("/api/entries", {
         method: "POST",
@@ -313,6 +339,8 @@
     } catch (err) {
       statusEl.textContent = err.message;
       statusEl.className = "status-msg err";
+    } finally {
+      addBtn.disabled = false;
     }
   });
 

@@ -274,19 +274,11 @@ async function handlePostEntry(req, res) {
     return;
   }
 
-  const ExcelJS = require("exceljs");
-  const config = require("../core/config");
-  const { ensureDataFile, ensureLocationColumns } = require("../core/utils/dataReader");
-  await ensureDataFile();
-  // Older data files (created before location overrides existed) won't
-  // have these columns yet -- add them if missing before appending a row
-  // that assumes they're there.
-  await ensureLocationColumns();
-
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(config.paths.dataFile);
-  const sheet = workbook.worksheets[0];
-  sheet.addRow([
+  // One locked read-modify-write (creates the file / adds missing location
+  // columns as needed) -- two Add clicks at once used to overwrite each
+  // other, or mangle the spreadsheet beyond opening.
+  const { appendEntryRow } = require("../core/utils/dataReader");
+  await appendEntryRow([
     body.date || "",
     body.partner,
     body.calls ?? "",
@@ -297,7 +289,6 @@ async function handlePostEntry(req, res) {
     body.latitude ?? "",
     body.longitude ?? "",
   ]);
-  await workbook.xlsx.writeFile(config.paths.dataFile);
 
   sendJson(res, 200, { ok: true });
 }

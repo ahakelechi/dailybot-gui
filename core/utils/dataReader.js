@@ -11,6 +11,53 @@ const config = require("../config");
 const logger = require("./logger");
 const { formatDateOnly } = require("./helpers");
 
+// ---------------------------------------------------------------------
+// Write safety
+//
+// Every change to the data file is a read-modify-write: load the whole
+// workbook, change it in memory, write the whole thing back. Two of those
+// running at the same moment (a quick double-click on Add, several Remove
+// clicks in a row, or a run finishing while entries are being edited) both
+// start from the same snapshot, so one edit silently overwrites the other --
+// and when the two writes overlap in time their bytes interleave and the
+// .xlsx can't be opened at all ("Corrupted zip or bug: expected N records
+// in central dir"), which takes down the Daily Entries tab, Add Entry and
+// Run Now until the file is rebuilt.
+//
+// So edits go through a queue that runs them strictly one at a time, and
+// every write goes to a temp file that is then renamed over the real one:
+// a failed or interrupted save can never leave a half-written spreadsheet.
+// ---------------------------------------------------------------------
+let editQueue = Promise.resolve();
+
+/**
+ * Run `task` after every edit queued before it has finished (whether or not
+ * those succeeded). Tasks must NOT call another locked function -- they
+ * would wait on themselves forever; use the *Unlocked helpers instead.
+ */
+function withDataFileLock(task) {
+  const result = editQueue.then(task);
+  editQueue = result.catch(() => {}); // one failed edit must not block the ones behind it
+  return result;
+}
+
+async function writeWorkbookAtomically(workbook, filePath) {
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    await workbook.xlsx.writeFile(tempPath);
+    fs.renameSync(tempPath, filePath);
+  } catch (err) {
+    fs.rmSync(tempPath, { force: true });
+    if (err.code === "EPERM" || err.code === "EBUSY") {
+      throw new Error(
+        `Could not save ${filePath} -- it looks like it's open in another program (Excel?). ` +
+          "Close it and try again."
+      );
+    }
+    throw err;
+  }
+}
+
 /**
  * Normalize a raw "Date" cell value into a YYYY-MM-DD string. Handles
  * exceljs giving back a real JS Date (typical for a cell formatted as a
@@ -114,21 +161,51 @@ async function readDailyLogEntries(filePath = config.paths.dataFile) {
 async function removeRows(rowNumbers, filePath = config.paths.dataFile) {
   if (!rowNumbers || rowNumbers.length === 0) return;
 
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(filePath);
+  return withDataFileLock(async () => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
 
-  const sheet = workbook.worksheets[0];
-  if (!sheet) return;
+    const sheet = workbook.worksheets[0];
+    if (!sheet) return;
 
-  // Descending order: removing a row shifts every row below it up by one,
-  // so working from the bottom up means each remaining target row number
-  // is still valid when its turn comes.
-  const sorted = [...new Set(rowNumbers)].sort((a, b) => b - a);
-  for (const rowNumber of sorted) {
-    sheet.spliceRows(rowNumber, 1);
-  }
+    // Descending order: removing a row shifts every row below it up by one,
+    // so working from the bottom up means each remaining target row number
+    // is still valid when its turn comes.
+    const sorted = [...new Set(rowNumbers)].sort((a, b) => b - a);
+    for (const rowNumber of sorted) {
+      sheet.spliceRows(rowNumber, 1);
+    }
 
-  await workbook.xlsx.writeFile(filePath);
+    await writeWorkbookAtomically(workbook, filePath);
+  });
+}
+
+/**
+ * Append one entry row (the Entries tab's Add Entry). Creates the file if
+ * it doesn't exist yet and adds the Latitude/Longitude columns if it
+ * predates them, all inside a single locked read-modify-write.
+ *
+ * @param {Array} rowValues - Date, Partner, Calls, Meetings, Blockers,
+ *   Priority, Notes, Latitude, Longitude (same order as the header row).
+ * @param {string} [filePath] - defaults to config.paths.dataFile.
+ */
+async function appendEntryRow(rowValues, filePath = config.paths.dataFile) {
+  return withDataFileLock(async () => {
+    await ensureDataFileUnlocked(filePath);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new Error(`No worksheet found in ${filePath}`);
+
+    // Older data files (created before location overrides existed) won't
+    // have these columns yet -- add them before appending a row that
+    // assumes they're there.
+    addMissingLocationHeaders(sheet);
+
+    sheet.addRow(rowValues);
+    await writeWorkbookAtomically(workbook, filePath);
+  });
 }
 
 /**
@@ -159,12 +236,16 @@ function groupEntriesByDate(entries) {
  * @param {string} [filePath]
  */
 async function ensureDataFile(filePath = config.paths.dataFile) {
+  return withDataFileLock(() => ensureDataFileUnlocked(filePath));
+}
+
+async function ensureDataFileUnlocked(filePath) {
   if (fs.existsSync(filePath)) return;
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Daily Log");
   sheet.addRow(["Date", "Partner", "Calls", "Meetings", "Blockers", "Priority", "Notes", "Latitude", "Longitude"]);
-  await workbook.xlsx.writeFile(filePath);
+  await writeWorkbookAtomically(workbook, filePath);
   logger.info(`Created a fresh data file at ${filePath}`);
 }
 
@@ -177,11 +258,26 @@ async function ensureDataFile(filePath = config.paths.dataFile) {
  * @param {string} [filePath]
  */
 async function ensureLocationColumns(filePath = config.paths.dataFile) {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(filePath);
-  const sheet = workbook.worksheets[0];
-  if (!sheet) return;
+  return withDataFileLock(async () => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) return;
 
+    if (addMissingLocationHeaders(sheet)) {
+      await writeWorkbookAtomically(workbook, filePath);
+    }
+  });
+}
+
+/**
+ * Add "Latitude"/"Longitude" to the header row of an already-loaded sheet
+ * if they're missing. Pure in-memory; the caller decides whether to save.
+ *
+ * @param {import('exceljs').Worksheet} sheet
+ * @returns {boolean} true if anything was added.
+ */
+function addMissingLocationHeaders(sheet) {
   const headerRow = sheet.getRow(1);
   const headerNames = [];
   headerRow.eachCell((cell) => headerNames.push(String(cell.value || "").trim()));
@@ -197,10 +293,14 @@ async function ensureLocationColumns(filePath = config.paths.dataFile) {
     headerRow.getCell(nextCol).value = "Longitude";
     changed = true;
   }
-
-  if (changed) {
-    await workbook.xlsx.writeFile(filePath);
-  }
+  return changed;
 }
 
-module.exports = { readDailyLogEntries, groupEntriesByDate, removeRows, ensureDataFile, ensureLocationColumns };
+module.exports = {
+  readDailyLogEntries,
+  groupEntriesByDate,
+  removeRows,
+  appendEntryRow,
+  ensureDataFile,
+  ensureLocationColumns,
+};

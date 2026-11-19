@@ -21,3 +21,6 @@ Thumbs.db
 
 # Local dev-preview tooling config, not part of the app
 .claude/
+
+# Half-written copies of the data file (the app saves to a temp file, then renames it into place)
+data/*.tmp
