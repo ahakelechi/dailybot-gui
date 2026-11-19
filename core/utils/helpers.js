@@ -59,6 +59,13 @@ function random(min, max) {
  * Wait up to `timeout` ms for a locator to become visible, returning
  * true/false instead of throwing.
  *
+ * Playwright refuses to wait on a locator that matches MORE than one element
+ * ("strict mode violation"). That is not "not visible", but it used to come
+ * back here as a plain `false` -- when the site's landing page grew a second
+ * sign-in link, every run logged a misleading '"Sign In" link not seen' and
+ * then timed out waiting for a form that nothing had opened. It still
+ * returns false (callers rely on that), but now says what actually happened.
+ *
  * @param {import('playwright').Locator} locator
  * @param {number} timeout
  * @returns {Promise<boolean>}
@@ -68,6 +75,12 @@ async function waitVisible(locator, timeout) {
     await locator.waitFor({ state: "visible", timeout });
     return true;
   } catch (err) {
+    if (/strict mode violation/i.test(err.message)) {
+      // Required lazily: logger.js itself requires this file.
+      require("./logger").warning(
+        `A selector matched more than one element, so it was treated as not visible -- it needs to be more specific: ${err.message.split("\n")[0]}`
+      );
+    }
     return false;
   }
 }

@@ -32,6 +32,10 @@ const config = {
     // present -- the site redirects it to /login either way. So the root
     // is only ever the right place to start a login from.
     login: process.env.LOGIN_URL || BASE_URL,
+    // The sign-in form's own page. The root is now a "Welcome to PAM" landing
+    // page whose "Sign in to PAM" button is just a link to this address, so
+    // it doubles as the fallback if that link can't be clicked.
+    loginForm: `${BASE_URL}/login`,
     // CONFIRMED live: the signed-in app lives under /admin. Pointing this
     // at the root instead made every session check report "logged out"
     // (the root always renders the login page), which threw away a
@@ -63,7 +67,12 @@ const config = {
   // ---------------------------------------------------------------------
   selectors: {
     login: {
-      signInLink: (page) => page.getByRole("link", { name: "Sign In" }),
+      // CONFIRMED live (Nov 2026): the landing page has TWO links whose names
+      // contain "sign in" -- the "Sign in to PAM" button and the icon-only logo
+      // link (aria-label "Mitsumi PAM sign in"), both pointing at /login. A
+      // locator matching two elements can't be waited on at all, so take the
+      // first; either one leads to the form.
+      signInLink: (page) => page.getByRole("link", { name: /sign in/i }).first(),
       emailInput: (page) => page.getByRole("textbox", { name: "Email" }),
       passwordInput: (page) => page.getByRole("textbox", { name: "Password" }),
       submitButton: (page) => page.getByRole("button", { name: "Login" }),

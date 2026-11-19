@@ -47,20 +47,33 @@ async function isSessionValid(page) {
 }
 
 /**
- * Click the "Sign In" link that gates the login form on the landing page,
- * if it's present. If a session partially exists or the site's already
- * showing the form, this is a harmless no-op.
+ * Get the email/password form on screen, however the site presents it.
+ *
+ * The entry page has changed shape more than once -- a bare "Sign In" link,
+ * the form straight away, and now a "Welcome to PAM" landing page whose
+ * "Sign in to PAM" button is a link to /login -- so this checks, in order:
+ *   1. the form is already showing (nothing to click),
+ *   2. a sign-in link is there to follow,
+ *   3. neither worked, so go to the login page's own address.
+ * A harmless no-op if the form is already open.
  *
  * @param {import('playwright').Page} page
  */
 async function openSignInForm(page) {
+  const emailInput = config.selectors.login.emailInput(page);
+
+  if (await waitVisible(emailInput, 2500)) return;
+
   const signInLink = config.selectors.login.signInLink(page);
-  const visible = await waitVisible(signInLink, 8000);
-  if (visible) {
+  if (await waitVisible(signInLink, 8000)) {
     await signInLink.click();
+    if (await waitVisible(emailInput, config.timeouts.action)) return;
+    logger.warning("Followed the sign-in link but the login form didn't appear -- opening the login page directly.");
   } else {
-    logger.info("\"Sign In\" link not seen -- assuming the login form is already showing.");
+    logger.warning("No sign-in link found on the entry page -- opening the login page directly.");
   }
+
+  await page.goto(config.urls.loginForm, { waitUntil: "domcontentloaded" });
 }
 
 /**
